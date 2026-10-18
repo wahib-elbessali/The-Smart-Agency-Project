@@ -234,7 +234,13 @@ class WeaponAlertConsumer:
 
     async def _consume_forever(self) -> None:
         while not self._stop_event.is_set():
-            sources = await asyncio.to_thread(self._load_sources)
+            try:
+                sources = await asyncio.to_thread(self._load_sources)
+            except Exception as exc:
+                # A database hiccup must not stop detection for good: retry.
+                logger.warning("%s: could not read cameras: %s", type(self).__name__, exc)
+                await self._wait(settings.ai_reconnect_delay_seconds)
+                continue
             if not sources:
                 await self._wait(settings.ai_reconnect_delay_seconds)
                 continue

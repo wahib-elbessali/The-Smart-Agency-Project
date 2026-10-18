@@ -5,8 +5,9 @@ extend it without breaking the contracts other parts depend on.
 
 For what the screens do from a user's point of view, see
 [user-guide.md](user-guide.md). How this version differs from `master` is in
-[version-comparison.md](version-comparison.md). Rules for branches, pull requests and reviews
-are in [CONTRIBUTING.md](../CONTRIBUTING.md).
+[version-comparison.md](version-comparison.md). Working without real hardware or
+cameras, including a simulated branch you can play a whole day in, is in
+[mocking-guide.md](mocking-guide.md).
 
 ---
 
@@ -58,6 +59,8 @@ Rules that hold everywhere:
 | `contracts/` | `api.md`, `ingestion.md`, `ai-service.md`, `device-commands.json` |
 | `hardware/` | Firmware and hardware glue |
 | `integration/` | Glue translating raw hardware/AI events into contract shapes |
+| `tools/sim/` | Live world mock, fake clock, setup and scenario scripts (see the mocking guide) |
+| `docs/` | These guides |
 
 ### Backend (`backend/app/`)
 
@@ -139,8 +142,8 @@ AI_SERVICE_URL=http://127.0.0.1:8001
 SECRET_KEY=<python -c "import secrets; print(secrets.token_urlsafe(48))">
 ```
 
-Seeded accounts: `admin@smartagency.local`, `manager@`, `agent@`, `security@`,
-`technician@smartagency.local`, password `Admin12345` (override with
+Seeded accounts: `admin@smartagency-dev.com`, `manager@`, `agent@`, `security@`,
+`technician@smartagency-dev.com`, password `Admin12345` (override with
 `SEED_PASSWORD`). API docs: http://127.0.0.1:8000/docs.
 
 Avoid `--reload` if you see duplicate processes fighting over the port on

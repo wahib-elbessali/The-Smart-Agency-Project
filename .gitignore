@@ -29,3 +29,8 @@ ai/features/data/*
 
 # Downloaded model weights (~55MB, re-download on demand)
 ai/features/models/
+
+# Live world mock: device keys and simulator state, never committed
+tools/sim/sim_config.json
+tools/sim/world_people.json
+tools/sim/*.log

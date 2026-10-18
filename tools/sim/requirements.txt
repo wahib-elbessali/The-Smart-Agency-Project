@@ -1,0 +1,9 @@
+# Live world mock (world.py) and fake clock (run_fake_clock.py), on top of
+# backend/requirements.txt. setup_sim.py, w.py and play.py need only Python.
+opencv-python
+numpy
+paho-mqtt>=2
+httpx
+fastapi
+uvicorn
+freezegun

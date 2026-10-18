@@ -4,7 +4,7 @@ Run this script after applying the Alembic migrations:
 
     python seed_dev.py
 
-The script only touches records identified by the ``smartagency.local``
+The script only touches records identified by the ``smartagency-dev.com``
 development emails, the ``DEV-*`` service codes, and the
 ``access-sensors-1`` development device. It is safe to run more than once.
 
@@ -62,12 +62,12 @@ AGENCY_ADDRESS = "Boulevard Mohammed V, Casablanca"
 AGENCY_PHONE = "0522000000"
 
 SEED_ACCOUNTS = {
-    "admin@smartagency.local": {
+    "admin@smartagency-dev.com": {
         "full_name": "Admin SmartAgency",
         "role": RoleName.ADMIN,
         "employee": None,
     },
-    "manager@smartagency.local": {
+    "manager@smartagency-dev.com": {
         "full_name": "Manager Casablanca",
         "role": RoleName.MANAGER,
         "employee": {
@@ -79,7 +79,7 @@ SEED_ACCOUNTS = {
             "zones": ("accueil", "direction"),
         },
     },
-    "agent@smartagency.local": {
+    "agent@smartagency-dev.com": {
         "full_name": "Agent Accueil",
         "role": RoleName.AGENT,
         "employee": {
@@ -91,7 +91,7 @@ SEED_ACCOUNTS = {
             "zones": ("accueil",),
         },
     },
-    "security@smartagency.local": {
+    "security@smartagency-dev.com": {
         "full_name": "Security Casablanca",
         "role": RoleName.SECURITY,
         "employee": {
@@ -103,7 +103,7 @@ SEED_ACCOUNTS = {
             "zones": ("accueil", "direction", "technique"),
         },
     },
-    "technician@smartagency.local": {
+    "technician@smartagency-dev.com": {
         "full_name": "Technician IoT",
         "role": RoleName.TECHNICIAN,
         "employee": {
@@ -458,7 +458,7 @@ def seed() -> dict[str, str]:
                 users[email] = user
                 if spec["employee"] is not None:
                     employees[email] = get_or_create_employee(db, email, user, spec, agency, zones)
-            users["agent@smartagency.local"].counter_id = counters[1].id
+            users["agent@smartagency-dev.com"].counter_id = counters[1].id
 
             device, device_key = get_or_create_device(db, agency)
             get_or_create_threshold(db, device, "temperature", "C", 28.0, 35.0)
@@ -496,7 +496,7 @@ def seed() -> dict[str, str]:
                 counters[4],
             )
 
-            get_or_create_attendance(db, employees["security@smartagency.local"])
+            get_or_create_attendance(db, employees["security@smartagency-dev.com"])
 
             existing_alert = db.scalar(
                 select(Alert).where(
@@ -512,8 +512,10 @@ def seed() -> dict[str, str]:
             existing_alert.alert_type = "weapon"
             existing_alert.message = "Alerte de démonstration pour le dashboard"
             existing_alert.severity = AlertSeverity.MEDIUM
-            existing_alert.status = AlertStatus.OPEN
-            existing_alert.resolved_at = None
+            # Resolved: an open weapon alert would absorb every real weapon
+            # detection of the branch (one incident per branch, ai_alerts/incidents.py).
+            existing_alert.status = AlertStatus.RESOLVED
+            existing_alert.resolved_at = existing_alert.resolved_at or datetime.now(timezone.utc)
 
             db.commit()
         except Exception:
@@ -522,7 +524,7 @@ def seed() -> dict[str, str]:
 
     return {
         "agency": AGENCY_NAME,
-        "admin_email": "admin@smartagency.local",
+        "admin_email": "admin@smartagency-dev.com",
         "password": password,
         "device_id": "access-sensors-1",
         "device_key": device_key,

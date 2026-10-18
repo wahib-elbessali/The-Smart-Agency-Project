@@ -41,13 +41,13 @@ l'appareil IoT `access-sensors-1` et ses seuils DHT11/MQ2.
 Compte ADMIN de développement :
 
 ```text
-Email    : admin@smartagency.local
+Email    : admin@smartagency-dev.com
 Mot de passe : Admin12345
 ```
 
 Les autres comptes utilisent le même mot de passe :
-`manager@smartagency.local`, `agent@smartagency.local`,
-`security@smartagency.local` et `technician@smartagency.local`.
+`manager@smartagency-dev.com`, `agent@smartagency-dev.com`,
+`security@smartagency-dev.com` et `technician@smartagency-dev.com`.
 
 Pour modifier le mot de passe utilisé lors de la création :
 

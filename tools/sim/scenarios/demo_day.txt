@@ -1,0 +1,46 @@
+# A short working day on the simulated branch (after setup_sim.py devices + vision).
+# python tools/sim/play.py tools/sim/scenarios/demo_day.txt
+# Needs the backend started with run_fake_clock.py for the clock lines.
+
+say Opening. Watch: Employee presence, Live map
+clock 08:00
+add Manager employee outside entrance rfid=RFID-DEV-MANAGER
+wait 6
+gate Manager
+move Manager desk1
+wait 4
+
+say First visitors. Watch: Visitor queue, Live map (ticket numbers on the dots)
+clock 09:00
+add Visitor1 visitor outside kiosk
+wait 7
+kiosk Visitor1 VIR
+move Visitor1 waiting
+add Visitor2 visitor outside kiosk
+wait 7
+kiosk Visitor2 VIR
+move Visitor2 waiting2
+wait 3
+
+say The counter calls the next ticket. Watch: the queue display line in the world log
+callnext VIR
+move Visitor1 counter1
+wait 6
+pause
+
+say It gets warm. Watch: Climate, then Alerts (temperature)
+sensor temperature=33 jump now
+wait 5
+pause
+sensor temperature=22 jump now
+
+say Somebody walks in armed. Watch: Alerts (weapon), Live map (red ring)
+add Visitor3 visitor outside waiting3 weapon=pistol
+wait 10
+pause
+leave Visitor3
+
+say Closing. Waiting tickets become no-show at closing time.
+leave Visitor1
+leave Visitor2
+clock 17:00
