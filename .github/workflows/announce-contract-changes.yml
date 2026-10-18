@@ -1,0 +1,38 @@
+name: Announce contract changes
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+    paths:
+      - 'contracts/**.md'
+
+jobs:
+  announce:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_API_CONTRACT_WEBHOOK }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          FILES=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' | grep '^contracts/.*\.md$' | paste -sd ', ' -)
+
+          PREFIX=""
+          if printf '%s' "$PR_TITLE" | grep -q '^BREAKING:'; then
+            PREFIX="🚨 **BREAKING CONTRACT CHANGE** — "
+          fi
+
+          BODY=$(PREFIX="$PREFIX" FILES="$FILES" PR_TITLE="$PR_TITLE" PR_URL="$PR_URL" node -e '
+            const payload = {
+              content: `${process.env.PREFIX}${process.env.FILES}\n**${process.env.PR_TITLE}**\n${process.env.PR_URL}`
+            };
+            process.stdout.write(JSON.stringify(payload));
+          ')
+          curl -sS -H "Content-Type: application/json" -X POST -d "$BODY" "$DISCORD_WEBHOOK_URL"

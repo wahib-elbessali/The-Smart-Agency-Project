@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>smartAgencyAI — test console</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212a; --border: #2a2f3a;
+    --text: #d8dee9; --muted: #7d8590; --accent: #4f9dfa; --good: #3fb950;
+    --bad: #f85149; --warn: #d29922; --mono: "SF Mono", Consolas, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, Arial, sans-serif;
+    margin: 0; padding: 16px; font-size: 14px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--accent); }
+  h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .topbar {
+    display: flex; gap: 8px; align-items: center; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .topbar input[type=text] { width: 260px; }
+  .pill { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: rgba(63,185,80,.15); color: var(--good); }
+  .pill.bad { background: rgba(248,81,73,.15); color: var(--bad); }
+  .pill.unknown { background: rgba(125,133,144,.15); color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+  }
+  .panel.wide { grid-column: 1 / -1; }
+  input, select, button, textarea {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 5px; padding: 5px 8px; font-size: 13px; font-family: inherit;
+  }
+  input[type=number] { width: 80px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0b0d11; font-weight: 600; }
+  button.danger:hover { border-color: var(--bad); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  label { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  pre.log {
+    background: #0a0c10; border: 1px solid var(--border); border-radius: 5px; padding: 8px;
+    font-family: var(--mono); font-size: 11px; max-height: 220px; overflow: auto; white-space: pre-wrap;
+    word-break: break-all; margin: 6px 0 0;
+  }
+  .imgwrap { position: relative; display: inline-block; margin-top: 6px; max-width: 100%; }
+  .imgwrap img { display: block; max-width: 100%; border: 1px solid var(--border); border-radius: 4px; }
+  .imgwrap canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge.true { background: rgba(63,185,80,.15); color: var(--good); }
+  .badge.false { background: rgba(248,81,73,.15); color: var(--bad); }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .small { font-size: 11px; color: var(--muted); }
+  canvas.map { background: #0a0c10; border: 1px solid var(--border); border-radius: 4px; margin-top: 6px; }
+  .tag { font-family: var(--mono); background: var(--panel2); padding: 1px 5px; border-radius: 3px; }
+  hr.sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<h1>smartAgencyAI — test console</h1>
+<div class="sub">
+  Talks directly to the running <span class="tag">uvicorn features.main:app</span> over HTTP/WebSocket.
+  Reference tooling only — not the deployed surface. See <span class="tag">docs/api.md</span> for full payload/return docs.
+</div>
+
+<div class="topbar">
+  <label>API base</label>
+  <input type="text" id="apiBase" value="http://127.0.0.1:8000">
+  <button class="primary" onclick="pingApi()">Ping</button>
+  <span id="pingStatus" class="pill unknown">unknown</span>
+  <span id="pingDetail" class="small"></span>
+</div>
+
+<div class="grid">
+
+  <!-- ============================== CAMERA TABLE ============================== -->
+  <div class="panel wide">
+    <h2>/cameras — the site camera table</h2>
+    <div class="sub">
+      The real, server-side table (<span class="tag">features/data/cameras.json</span>) — persisted, and
+      survives a restart. Define a camera once, then tick which features watch it; each feature reads its
+      list from here. <b>Quality</b> is a fraction of native resolution and is safe to change: the
+      calibration is rescaled from the actual frame size, so lowering it does not move anyone on the floor.
+      Changing quality re-bootstraps <span class="tag">/people</span> (track ids are lost).
+    </div>
+    <div class="row">
+      <label>id</label><input type="text" id="camId" placeholder="0" style="width:60px">
+      <label>name</label><input type="text" id="camName" placeholder="Entrance" style="width:120px">
+      <label>url</label><input type="text" id="camUrl" placeholder="rtsp://... or http://.../cam/0" style="width:300px">
+      <label>quality</label><input type="number" id="camQuality" value="1.0" step="0.05" min="0.05" max="1" style="width:70px">
+      <button class="primary" onclick="saveCamera()">Add / update</button>
+      <button onclick="loadCameras()">Refresh</button>
+    </div>
+    <table id="camerasTable">
+      <thead><tr><th>id</th><th>name</th><th>url</th><th>quality</th><th>watched by</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row small" id="camerasWarnings"></div>
+    <pre class="log" id="camerasLog"></pre>
+  </div>
+
+  <!-- ============================== LIVE VIEW ============================== -->
+  <div class="panel wide">
+    <h2>Live view — stream + boxes + zones</h2>
+    <div class="sub">
+      The camera image with this cycle's detections drawn on it, plus any zones on that camera.
+      Boxes come from <span class="tag">/people/tracks/stream</span> (so /people must be
+      <b>running</b>); the image from <span class="tag">GET /frame?camera=</span>, which applies the
+      camera's quality — both are in the same pixel space, so nothing needs rescaling.
+      Track ids are drawn at each person's <b>foot</b> position, projected from world coordinates
+      through this camera's calibration.
+    </div>
+    <div class="row">
+      <label>camera</label><select id="liveCam"></select>
+      <button class="primary" id="liveBtn" onclick="toggleLive()">Start</button>
+      <label style="margin-left:10px"><input type="checkbox" id="liveBoxes" checked> boxes</label>
+      <label><input type="checkbox" id="liveZones" checked> zones</label>
+      <label><input type="checkbox" id="liveIds" checked> track ids</label>
+      <span id="liveStatus" class="pill unknown">stopped</span>
+      <span class="small" id="liveFps"></span>
+    </div>
+    <canvas id="liveCanvas" class="map" width="640" height="360"></canvas>
+    <pre class="log" id="liveLog"></pre>
+  </div>
+
+  <!-- ============================== CALIBRATION ============================== -->
+  <div class="panel wide">
+    <h2>/calibration — pixel ↔ floor geometry</h2>
+    <div class="row">
+      <label>camera</label><select id="calCam"></select>
+      <label>frame index</label><input type="number" id="calIndex" placeholder="(live)">
+      <button onclick="loadFrame('cal')">Load frame</button>
+      <span class="small">Click points on the image below.</span>
+    </div>
+    <div id="calImgWrap" class="imgwrap"></div>
+    <div class="row" style="margin-top:8px">
+      <span id="calPointCount" class="small">0 points picked</span>
+      <button onclick="undoLastPoint('cal')">Undo last point</button>
+      <button onclick="clearPicker('cal')">Clear points</button>
+      <span class="small">Click 3 real corners of a right angle (rug, tile, doorway), in order around it — the 4th is auto-placed (light blue), drag it to line up with the real corner, or click elsewhere to relocate it.</span>
+    </div>
+
+    <h3>Fit rect (needs exactly 4 points)</h3>
+    <div class="row"><button class="primary" onclick="calFitRect()">POST /calibration/rect</button></div>
+
+    <h3>Align (shared points across cameras)</h3>
+    <div class="row">
+      <span class="small">Load a frame above, click ONE point, then capture it for that camera:</span>
+      <button onclick="calCapturePending()">Capture last click for "<span id="calCamLabel">-</span>"</button>
+    </div>
+    <div class="row">
+      <span class="small">Pending shared point: <span id="calPending" class="tag">{}</span></span>
+      <button onclick="calCommitPending()">Commit point to align list</button>
+      <button onclick="calResetPending()">Reset pending</button>
+    </div>
+    <div class="row">
+      <span class="small">Align list: <span id="calAlignCount">0</span> points</span>
+      <button class="primary" onclick="calRunAlign()">POST /calibration/align</button>
+      <button onclick="calClearAlign()">Clear list</button>
+    </div>
+
+    <h3>Cross-check (read-only)</h3>
+    <div class="row">
+      <span class="small">Reuses the SAME capture flow as align, into a separate points object:</span>
+      <button onclick="calCaptureCross()">Capture last click for "<span id="calCamLabel2">-</span>" (cross-check)</button>
+      <span class="small">pending: <span id="calCrossPending" class="tag">{}</span></span>
+      <button class="primary" onclick="calRunCrossCheck()">POST /calibration/cross_check</button>
+      <button onclick="calClearCross()">Clear</button>
+    </div>
+
+    <h3>Mark entry gate</h3>
+    <div class="row">
+      <label>camera</label><select id="gateCam"></select>
+      <button onclick="loadFrame('gate')">Load frame</button>
+      <span class="small">This camera must be calibrated. Click real entry/exit points (a doorway, wherever people actually walk in) — used by /people's tracker as a revival prior.</span>
+    </div>
+    <div id="gateImgWrap" class="imgwrap"></div>
+    <div class="row" style="margin-top:8px">
+      <span id="gatePointCount" class="small">0 points picked</span>
+      <button onclick="undoLastPoint('gate')">Undo last point</button>
+      <button onclick="clearPicker('gate')">Clear points</button>
+      <button onclick="calStageGates()">Stage these as gates for "<span id="gateCamLabel">-</span>"</button>
+    </div>
+    <div class="row">
+      <span class="small">Staged (not yet saved): <span id="calGatesStaged" class="tag">{}</span></span>
+      <button class="primary" onclick="calSaveGates()">POST /calibration/gates (replaces all)</button>
+      <button onclick="calRefreshGates()">GET /calibration/gates</button>
+      <button class="danger" onclick="calDeleteGates()">DELETE /calibration/gates (clear all)</button>
+    </div>
+    <div class="small" id="calGatesCurrent"></div>
+
+    <h3>View BEV overlay (check alignment)</h3>
+    <div class="row">
+      <span class="small">Read-only. Every checked camera's current frame, rectified onto one shared floor-plane canvas and averaged — a real floor feature (rug edge, tile seam) lands in the same spot from every camera and looks sharp if calibration+alignment is correct; ghosting/doubling means it isn't. Computed entirely client-side from GET /calibration's Hinv + GET /frame — no new backend endpoint.</span>
+    </div>
+    <div class="row" id="bevCamChecks"></div>
+    <div class="row">
+      <button class="primary" onclick="bevRefresh()">Refresh BEV</button>
+      <label>canvas size</label><input type="number" id="bevSize" value="420" style="width:70px">
+    </div>
+    <canvas id="bevCanvas" class="map" width="420" height="420"></canvas>
+
+    <h3>Current calibration</h3>
+    <div class="row"><button onclick="calRefresh()">GET /calibration</button></div>
+    <table id="calTable"><thead><tr><th>camera</th><th>aligned</th><th>px_err_mean</th><th></th></tr></thead><tbody></tbody></table>
+    <pre class="log" id="calLog"></pre>
+  </div>
+
+  <!-- ============================== ZONING ============================== -->
+  <div class="panel wide">
+    <h2>/zoning — headcount inside floor polygons</h2>
+    <div class="row">
+      <label>camera</label><select id="zoneCam"></select>
+      <button onclick="loadFrame('zone')">Load frame</button>
+      <span class="small">Click polygon points (≥3) on the image below.</span>
+    </div>
+    <div id="zoneImgWrap" class="imgwrap"></div>
+    <div class="row" style="margin-top:8px">
+      <span id="zonePointCount" class="small">0 points picked</span>
+      <button onclick="undoLastPoint('zone')">Undo last point</button>
+      <button onclick="clearPicker('zone')">Clear points</button>
+    </div>
+    <div class="small">Check which camera(s) this zone should fuse across (the camera drawn on above is always included automatically):</div>
+    <div class="row" id="zoneCamChecks"></div>
+    <div class="row">
+      <label>zone name</label><input type="text" id="zoneName" placeholder="lobby">
+      <button class="primary" onclick="zoneCreate()">POST /zoning/zones</button>
+    </div>
+    <div class="row">
+      <button onclick="zoneRefresh()">GET /zoning/zones</button>
+    </div>
+    <table id="zoneTable"><thead><tr><th>name</th><th>mode</th><th>camera</th><th></th></tr></thead><tbody></tbody></table>
+
+    <h3>Occupancy stream</h3>
+    <div class="row">
+      <label>threshold</label><input type="number" id="zoneThreshold" value="0">
+      <button class="primary" id="zoneWsBtn" onclick="toggleWs('zone')">Connect</button>
+      <span id="zoneWsStatus" class="pill unknown">disconnected</span>
+    </div>
+    <table id="zoneCounts"><thead><tr><th>zone</th><th>count</th></tr></thead><tbody></tbody></table>
+    <pre class="log" id="zoneLog"></pre>
+  </div>
+
+  <!-- ============================== PEOPLE ============================== -->
+  <div class="panel wide">
+    <h2>/people — live multi-camera person tracking</h2>
+    <div class="small">Which cameras belong to this tracked scene is set on the /cameras panel above (tick "people" there, needs ≥2, all calibrated+aligned).</div>
+    <div class="row">
+      <button onclick="peopleStatus()">GET /people/status</button>
+      <label style="margin-left:10px"><input type="checkbox" id="peopleAutoPoll" onchange="peopleAutoPollToggle()"> auto-poll (2s)</label>
+    </div>
+    <div class="row">
+      phase: <span id="peoplePhase" class="pill unknown">-</span>
+      active: <span id="peopleActive" class="tag">-</span>
+      person_scale: <span id="peopleScale" class="tag">-</span>
+      fps: <span id="peopleFps" class="tag">-</span>
+    </div>
+    <div class="row small" id="peopleWarnings"></div>
+    <div class="row">
+      <button class="primary" id="peopleWsBtn" onclick="toggleWs('people')">Connect tracks stream</button>
+      <span id="peopleWsStatus" class="pill unknown">disconnected</span>
+      <button onclick="peopleRefreshZones()">Refresh zones on map</button>
+      <span class="small">world-mode zones only (drawn under the tracked dots) -- pixel-mode zones live in one camera's own pixel space, nothing to overlay here</span>
+    </div>
+    <canvas id="peopleMap" class="map" width="420" height="300"></canvas>
+    <table id="peopleTable"><thead><tr><th>id</th><th>x</th><th>y</th><th>hits</th><th>misses</th></tr></thead><tbody></tbody></table>
+    <pre class="log" id="peopleLog"></pre>
+  </div>
+
+  <!-- ============================== FACE ============================== -->
+  <div class="panel wide">
+    <h2>/face — access control</h2>
+    <h3>Enroll</h3>
+    <div class="row">
+      <label>name</label><input type="text" id="faceEnrollName" placeholder="omar">
+      <input type="file" id="faceEnrollFile" accept="image/*">
+      <button class="primary" onclick="faceEnroll()">POST /face/enroll</button>
+    </div>
+    <h3>Gallery</h3>
+    <div class="row"><button onclick="faceList()">GET /face/faces</button></div>
+    <table id="faceTable"><thead><tr><th>name</th><th>embeddings</th><th></th></tr></thead><tbody></tbody></table>
+    <h3>Scan (blocking — waits up to timeout)</h3>
+    <div class="row">
+      <label>source</label><input type="text" id="faceScanSource" placeholder="path or rtsp://gate-cam" style="width:260px">
+      <label>timeout (s)</label><input type="number" id="faceScanTimeout" value="15">
+      <button class="primary" onclick="faceScan()">POST /face/scan</button>
+    </div>
+    <pre class="log" id="faceLog"></pre>
+  </div>
+
+  <!-- ============================== ALERT STREAM PANELS (weapon/fire/emotion) ============================== -->
+  <div class="panel" id="panel-weapon"></div>
+  <div class="panel" id="panel-fire"></div>
+  <div class="panel" id="panel-emotion"></div>
+
+  <!-- ============================== WANTED (alert panel + watchlist) ============================== -->
+  <div class="panel wide">
+    <div id="panel-wanted"></div>
+    <h3>Watchlist</h3>
+    <div class="row">
+      <label>name</label><input type="text" id="wantedName" placeholder="MAROUANE-B-2024-114">
+      <input type="file" id="wantedFile" accept="image/*">
+      <button class="primary" onclick="wantedEnroll()">POST /wanted/watchlist</button>
+    </div>
+    <div class="row">
+      <button onclick="wantedList()">GET /wanted/watchlist</button>
+      <label><input type="checkbox" id="wantedIncludeEmb"> include_embeddings</label>
+    </div>
+    <table id="wantedTable"><thead><tr><th>name</th><th>embeddings_count</th><th></th></tr></thead><tbody></tbody></table>
+    <h3>Threshold</h3>
+    <div class="row">
+      <button onclick="wantedThresholdGet()">GET /wanted/threshold</button>
+      <label>threshold</label><input type="number" step="0.01" id="wantedThreshold" style="width:70px">
+      <label>min_face_px</label><input type="number" id="wantedMinFacePx" style="width:70px">
+      <button class="primary" onclick="wantedThresholdPut()">PUT /wanted/threshold</button>
+    </div>
+    <pre class="log" id="wantedLog"></pre>
+  </div>
+
+</div>
+
+<script>
+// ============================================================================
+// Shared helpers
+// ============================================================================
+const state = {
+  cameras: {},          // {camId: entry} -- mirror of the server-side /cameras table
+  sources: {},          // {camId: url} -- derived from `cameras`, for the panels below
+  pickers: {},           // {name: {img, canvas, points: [[x,y],...], natW, natH}}
+  ws: {},                 // {name: WebSocket}
+  cal: { pending: {}, align: [], crossPending: {}, activeCam: null,
+         gateActiveCam: null, gates: {} },  // gates: {camId: [[px,py],...]} -- staged, not yet saved
+  people: { pollTimer: null, room: null, worldZones: [], lastTracksMsg: null },
+};
+
+function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
+function wsBase() { return apiBase().replace(/^http/, 'ws'); }
+
+function logTo(elId, obj) {
+  const el = document.getElementById(elId);
+  const line = (typeof obj === 'string') ? obj : JSON.stringify(obj);
+  el.textContent = `[${new Date().toLocaleTimeString()}] ${line}\n` + el.textContent;
+}
+
+async function api(path, opts) {
+  opts = opts || {};
+  const url = apiBase() + path;
+  const fetchOpts = { method: opts.method || 'GET', headers: {} };
+  if (opts.body !== undefined) {
+    fetchOpts.headers['Content-Type'] = 'application/json';
+    fetchOpts.body = JSON.stringify(opts.body);
+  } else if (opts.form) {
+    fetchOpts.body = opts.form; // FormData, browser sets multipart header itself
+  }
+  const res = await fetch(url, fetchOpts);
+  let data;
+  try { data = await res.json(); } catch (e) { data = { detail: await res.text().catch(() => '') }; }
+  if (!res.ok) { const err = new Error(`${res.status}`); err.data = data; err.status = res.status; throw err; }
+  return data;
+}
+
+async function pingApi() {
+  const pillEl = document.getElementById('pingStatus');
+  const detailEl = document.getElementById('pingDetail');
+  try {
+    const d = await api('/');
+    pillEl.textContent = 'ok'; pillEl.className = 'pill ok';
+    detailEl.textContent = `${d.service} — features: ${d.features.join(', ')}`;
+  } catch (e) {
+    pillEl.textContent = 'unreachable'; pillEl.className = 'pill bad';
+    detailEl.textContent = e.message || String(e);
+  }
+}
+
+
+// ---- live view: stream + boxes + zones ------------------------------------
+// Three sources, one canvas:
+//   image  <- GET /frame?camera=   (quality applied, so it matches the boxes)
+//   boxes  <- /people/tracks/stream "boxes" (pixel, same frame)
+//   tracks <- same message, but WORLD coords -> projected here with H
+// H is the inverse of the calibration's Hinv. Zones stored in world units
+// are projected the same way; pixel zones are already in image space.
+const live = { on: false, cam: null, img: new Image(), H: {}, zones: {},
+               boxes: {}, tracks: [], t0: 0, n: 0, timer: null, fails: 0 };
+// Give up after this many consecutive frame failures. A view left
+// running against a camera that has gone (deleted from the table, or
+// the page left open across a restart) would otherwise poll forever,
+// filling the server log with 404s and looking like a server fault.
+const LIVE_MAX_FAILS = 5;
+
+function inv3(m) {
+  const [a,b,c,d,e,f,g,h,i] = [m[0][0],m[0][1],m[0][2],m[1][0],m[1][1],m[1][2],m[2][0],m[2][1],m[2][2]];
+  const A=e*i-f*h, B=-(d*i-f*g), C=d*h-e*g;
+  const det = a*A + b*B + c*C;
+  if (!det) return null;
+  return [[A/det, (c*h-b*i)/det, (b*f-c*e)/det],
+          [B/det, (a*i-c*g)/det, (c*d-a*f)/det],
+          [C/det, (b*g-a*h)/det, (a*e-b*d)/det]];
+}
+function applyH(H, x, y) {
+  const w = H[2][0]*x + H[2][1]*y + H[2][2];
+  return [(H[0][0]*x + H[0][1]*y + H[0][2]) / w, (H[1][0]*x + H[1][1]*y + H[1][2]) / w];
+}
+
+async function liveLoadGeometry() {
+  try {
+    const cal = await fetch(apiBase() + '/calibration').then(r => r.json());
+    live.H = {};
+    for (const [cam, e] of Object.entries(cal)) {
+      const H = inv3(e.Hinv);            // world -> pixel
+      if (H) live.H[cam] = H;
+    }
+    const z = await fetch(apiBase() + '/zoning/zones').then(r => r.json());
+    live.zones = z.zones || z || {};
+  } catch (e) { logTo('liveLog', 'geometry load failed: ' + e.message); }
+}
+
+function toggleLive() {
+  live.on ? stopLive() : startLive();
+}
+
+async function startLive() {
+  live.cam = document.getElementById('liveCam').value;
+  if (!live.cam) { logTo('liveLog', 'pick a camera first (add one to the table above)'); return; }
+  await liveLoadGeometry();
+  live.on = true; live.t0 = performance.now(); live.n = 0; live.fails = 0;
+  document.getElementById('liveBtn').textContent = 'Stop';
+  const lp = document.getElementById('liveStatus');
+  lp.textContent = 'running'; lp.className = 'pill ok';
+  // Reuse the /people websocket if the People panel already opened one;
+  // otherwise open our own. Boxes only arrive while /people is running.
+  if (!state.ws || !state.ws.people || state.ws.people.readyState !== 1) toggleWs('people');
+  liveTick();
+}
+
+function stopLive() {
+  live.on = false;
+  if (live.timer) clearTimeout(live.timer);
+  document.getElementById('liveBtn').textContent = 'Start';
+  const lp = document.getElementById('liveStatus');
+  lp.textContent = 'stopped'; lp.className = 'pill unknown';
+}
+
+function liveTick() {
+  if (!live.on) return;
+  const url = apiBase() + '/frame?format=jpeg&quality=75&camera='
+            + encodeURIComponent(live.cam) + '&_=' + Date.now();
+  live.img.onload = () => { live.fails = 0; liveDraw(); scheduleLive(); };
+  live.img.onerror = () => {
+    if (++live.fails >= LIVE_MAX_FAILS) {
+      logTo('liveLog', `stopped: ${live.fails} failed frame fetches for camera `
+        + `"${live.cam}" -- is it still in the camera table, and is its stream up?`);
+      stopLive();
+      const lp = document.getElementById('liveStatus');
+      lp.textContent = 'failed'; lp.className = 'pill bad';
+      return;
+    }
+    logTo('liveLog', `frame fetch failed for camera ${live.cam} `
+      + `(${live.fails}/${LIVE_MAX_FAILS})`);
+    scheduleLive();
+  };
+  live.img.src = url;
+}
+function scheduleLive() {
+  live.n++;
+  const secs = (performance.now() - live.t0) / 1000;
+  document.getElementById('liveFps').textContent = (live.n / secs).toFixed(1) + ' fps';
+  live.timer = setTimeout(liveTick, 100);
+}
+
+function liveDraw() {
+  const cv = document.getElementById('liveCanvas'), ctx = cv.getContext('2d');
+  const iw = live.img.naturalWidth, ih = live.img.naturalHeight;
+  if (!iw) return;
+  cv.width = 640; cv.height = Math.round(640 * ih / iw);
+  const k = cv.width / iw;                       // image px -> canvas px
+  ctx.drawImage(live.img, 0, 0, cv.width, cv.height);
+
+  if (document.getElementById('liveZones').checked) {
+    const H = live.H[live.cam];
+    for (const [name, z] of Object.entries(live.zones)) {
+      let pts = null;
+      if (z.mode === 'pixel' && String(z.camera) === String(live.cam)) {
+        pts = z.polygon_px;
+      } else if (z.mode === 'world' && H) {
+        // world zones are stored in rectangle-side units; the calibration
+        // frame is 100x that -- same convention as zoning/zones.py
+        pts = (z.polygon_m || []).map(p => applyH(H, p[0] * 100, p[1] * 100));
+      }
+      if (!pts || pts.length < 3) continue;
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => i ? ctx.lineTo(x * k, y * k) : ctx.moveTo(x * k, y * k));
+      ctx.closePath();
+      ctx.strokeStyle = '#3fb950'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = 'rgba(63,185,80,.12)'; ctx.fill();
+      ctx.fillStyle = '#3fb950'; ctx.font = '12px sans-serif';
+      ctx.fillText(name, pts[0][0] * k + 4, pts[0][1] * k - 4);
+    }
+  }
+
+  if (document.getElementById('liveBoxes').checked) {
+    ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2;
+    for (const b of (live.boxes[live.cam] || [])) {
+      ctx.strokeRect(b[0] * k, b[1] * k, (b[2] - b[0]) * k, (b[3] - b[1]) * k);
+    }
+  }
+
+  if (document.getElementById('liveIds').checked) {
+    const H = live.H[live.cam];
+    if (H) for (const t of live.tracks) {
+      const [px, py] = applyH(H, t.x, t.y);
+      if (!isFinite(px) || !isFinite(py)) continue;
+      const x = px * k, y = py * k;
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.283);
+      ctx.fillStyle = '#f0883e'; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('#' + t.id, x + 8, y - 6);
+    }
+  }
+}
+
+function liveOnTracks(msg) {
+  if (msg.boxes) live.boxes = msg.boxes;
+  if (msg.tracks) live.tracks = msg.tracks;
+}
+
+function fillLiveCamSelect() {
+  const sel = document.getElementById('liveCam');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  for (const id of Object.keys(state.cameras || {})) {
+    const o = document.createElement('option'); o.value = id;
+    o.textContent = id + ((state.cameras[id] || {}).name ? ' — ' + state.cameras[id].name : '');
+    sel.appendChild(o);
+  }
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+// ---- the server-side camera table -----------------------------------------
+// state.sources mirrors {id: url} from /cameras so the rest of this console
+// (frame previews, calibration, zone drawing) keeps working unchanged.
+const FEATURE_KEYS = ['people', 'zoning', 'weapon', 'fire', 'emotion', 'wanted'];
+
+async function loadCameras() {
+  try {
+    const r = await fetch(apiBase() + '/cameras');
+    const j = await r.json();
+    state.cameras = j.cameras || {};
+    state.sources = {};
+    for (const [id, e] of Object.entries(state.cameras)) if (e.url) state.sources[id] = e.url;
+    renderCameras();
+    renderSources();
+    fillLiveCamSelect();
+  } catch (e) { logTo('camerasLog', 'load failed: ' + e.message); }
+}
+
+async function saveCamera() {
+  const id = document.getElementById('camId').value.trim();
+  const url = document.getElementById('camUrl').value.trim();
+  const name = document.getElementById('camName').value.trim();
+  const quality = parseFloat(document.getElementById('camQuality').value);
+  if (!id) return;
+  const body = { id };
+  if (url) body.url = url;
+  if (name) body.name = name;
+  if (!isNaN(quality)) body.quality = quality;
+  await postCamera(body, 'saved ' + id);
+  document.getElementById('camId').value = '';
+  document.getElementById('camUrl').value = '';
+  document.getElementById('camName').value = '';
+}
+
+async function postCamera(body, what) {
+  try {
+    const r = await fetch(apiBase() + '/cameras', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) });
+    const j = await r.json();
+    logTo('camerasLog', what + ' -> ' + JSON.stringify(j.camera || j));
+    showCamWarnings(j.warnings);
+    await loadCameras();
+  } catch (e) { logTo('camerasLog', 'failed: ' + e.message); }
+}
+
+async function toggleCamFeature(id, feature, on) {
+  const cur = new Set((state.cameras[id] || {}).features || []);
+  on ? cur.add(feature) : cur.delete(feature);
+  try {
+    const r = await fetch(apiBase() + '/cameras/' + encodeURIComponent(id) + '/features', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ features: [...cur] }) });
+    const j = await r.json();
+    logTo('camerasLog', id + ' watched by ' + JSON.stringify((j.camera || {}).features || []));
+    showCamWarnings(j.warnings);
+    await loadCameras();
+  } catch (e) { logTo('camerasLog', 'failed: ' + e.message); }
+}
+
+async function setCamQuality(id, q) {
+  try {
+    const r = await fetch(apiBase() + '/cameras/' + encodeURIComponent(id) + '/quality', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quality: parseFloat(q) }) });
+    const j = await r.json();
+    logTo('camerasLog', id + ' quality -> ' + (j.camera || {}).quality);
+    showCamWarnings(j.warnings);
+    await loadCameras();
+  } catch (e) { logTo('camerasLog', 'failed: ' + e.message); }
+}
+
+async function deleteCamera(id) {
+  try {
+    await fetch(apiBase() + '/cameras/' + encodeURIComponent(id), { method: 'DELETE' });
+    logTo('camerasLog', 'deleted ' + id);
+    await loadCameras();
+  } catch (e) { logTo('camerasLog', 'failed: ' + e.message); }
+}
+
+function showCamWarnings(ws) {
+  const el = document.getElementById('camerasWarnings');
+  el.innerHTML = (ws && ws.length)
+    ? ws.map(w => `<span class="pill bad">${w}</span>`).join(' ') : '';
+}
+
+function renderCameras() {
+  const tbody = document.querySelector('#camerasTable tbody');
+  tbody.innerHTML = '';
+  for (const [id, e] of Object.entries(state.cameras || {})) {
+    const feats = new Set(e.features || []);
+    const boxes = FEATURE_KEYS.map(f =>
+      `<label style="margin-right:8px"><input type="checkbox" ${feats.has(f) ? 'checked' : ''}
+        onchange="toggleCamFeature('${id}','${f}',this.checked)"> ${f}</label>`).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${id}</td><td>${e.name || ''}</td>
+      <td class="small">${e.url || '<i>no url</i>'}</td>
+      <td><input type="number" value="${e.quality}" step="0.05" min="0.05" max="1"
+           style="width:64px" onchange="setCamQuality('${id}', this.value)"></td>
+      <td class="small">${boxes}</td>
+      <td><button onclick="deleteCamera('${id}')">delete</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function removeSource(id) { deleteCamera(id); }
+function renderSources() {
+  // refresh camera dropdowns that source from this table
+  for (const selId of ['calCam', 'zoneCam', 'gateCam']) {
+    const sel = document.getElementById(selId);
+    const prev = sel.value;
+    sel.innerHTML = '';
+    for (const id of Object.keys(state.sources)) {
+      const opt = document.createElement('option'); opt.value = id; opt.textContent = id;
+      sel.appendChild(opt);
+    }
+    if (Object.keys(state.sources).includes(prev)) sel.value = prev;
+  }
+  // Which camera(s) belong to people/zoning/weapon/fire/emotion/wanted is set
+  // ONCE, on the /cameras panel's own checkboxes (PUT /cameras/{id}/features)
+  // -- that IS each feature's registry, not a separate one, so it used to be
+  // possible to "register" a camera for e.g. /weapon from two different
+  // panels that quietly did the same thing. Only two independent checkbox
+  // groups remain here, for things that are NOT plain feature assignment:
+  //   - bevCamChecks: which cameras the live preview shows (read-only,
+  //     no side effects, so it alone defaults to "all checked").
+  //   - zoneCamChecks: which camera(s) a ZONE BEING CREATED fuses across --
+  //     scoped to one zone, not "does /zoning watch this camera at all".
+  buildCamCheckboxGroup('bevCamChecks', 'bevCamCb', true);
+  buildCamCheckboxGroup('zoneCamChecks', 'zoneCamCb', false);
+}
+
+function buildCamCheckboxGroup(containerId, cssClass, defaultChecked) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return; // alert panels are mounted after this is first defined but before first call -- still guard
+  // Per-id, not per-group: a camera seen before keeps whatever check state it
+  // had (so toggling one box survives an unrelated new camera being added);
+  // a genuinely NEW camera gets defaultChecked. Keying this off "has ANYTHING
+  // in the group ever been checked" instead (the earlier version) meant the
+  // very first camera added flipped the whole group into "never default
+  // again" mode -- BEV's "default all checked" only ever applied to camera #1.
+  const prevState = new Map([...wrap.querySelectorAll('input')].map(cb => [cb.value, cb.checked]));
+  wrap.innerHTML = '';
+  for (const id of Object.keys(state.sources)) {
+    const label = document.createElement('label');
+    label.style.marginRight = '10px';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = id; cb.className = cssClass;
+    cb.checked = prevState.has(id) ? prevState.get(id) : defaultChecked;
+    label.appendChild(cb);
+    label.append(` ${id}`);
+    wrap.appendChild(label);
+  }
+}
+
+function selectedSourcesObj(cssClass) {
+  const out = {};
+  for (const cb of document.querySelectorAll(`.${cssClass}:checked`)) out[cb.value] = state.sources[cb.value];
+  return out;
+}
+
+// ---- click-point picker on a preview image ---------------------------------
+// 'cal' is rectMode: 3 real clicks + an auto-placed, DRAGGABLE 4th corner
+// (parallelogram completion -- corner4 = corner1 + corner3 - corner2, exact
+// only near front-on, an approximation otherwise, which is why it's
+// draggable rather than trusted blind) -- same trick and math as the old
+// reference_ui/calibration/calibration_app.py. 'zone' stays a plain,
+// unbounded polygon picker (no 4-point concept applies to an N-gon).
+const DRAG_HIT_RADIUS_PX = 12; // screen pixels, constant regardless of zoom
+
+// Config per picker instance -- camera <select> id, image-wrap container id,
+// log panel id, and whether it's the rect-mode (draggable 4th corner) picker
+// or a plain unbounded point picker. 'gate' points are independent markers,
+// not a polygon, so noConnect skips drawing a line between them.
+const PICKER_CFG = {
+  cal:  { camSel: 'calCam',  wrap: 'calImgWrap',  log: 'calLog',  rectMode: true,  noConnect: false },
+  zone: { camSel: 'zoneCam', wrap: 'zoneImgWrap', log: 'zoneLog', rectMode: false, noConnect: false },
+  gate: { camSel: 'gateCam', wrap: 'gateImgWrap', log: 'calLog',  rectMode: false, noConnect: true },
+};
+
+async function loadFrame(pickerName) {
+  const cfg = PICKER_CFG[pickerName];
+  const camId = document.getElementById(cfg.camSel).value;
+  if (!camId) { alert('add a camera source first'); return; }
+  const source = state.sources[camId];
+  let url = `${apiBase()}/frame?source=${encodeURIComponent(source)}`;
+  if (pickerName === 'cal') {
+    const idx = document.getElementById('calIndex').value;
+    if (idx !== '') url += `&index=${encodeURIComponent(idx)}`;
+  }
+  const wrap = document.getElementById(cfg.wrap);
+  wrap.innerHTML = '';
+  const img = document.createElement('img');
+  img.src = url + `&_=${Date.now()}`;
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(img); wrap.appendChild(canvas);
+
+  img.onload = () => {
+    canvas.width = img.clientWidth; canvas.height = img.clientHeight;
+    canvas.style.width = img.clientWidth + 'px'; canvas.style.height = img.clientHeight + 'px';
+    state.pickers[pickerName] = {
+      img, canvas, points: [], natW: img.naturalWidth, natH: img.naturalHeight,
+      rectMode: cfg.rectMode, noConnect: cfg.noConnect, justDragged: false,
+    };
+    wirePickerEvents(pickerName);
+    updatePointCount(pickerName);
+  };
+  img.onerror = () => logTo(cfg.log, `could not load frame from ${source}`);
+
+  if (pickerName === 'cal') {
+    state.cal.activeCam = camId;
+    document.getElementById('calCamLabel').textContent = camId;
+    document.getElementById('calCamLabel2').textContent = camId;
+  } else if (pickerName === 'gate') {
+    state.cal.gateActiveCam = camId;
+    document.getElementById('gateCamLabel').textContent = camId;
+  }
+}
+
+function canvasToNatural(p, ev) {
+  const rect = p.canvas.getBoundingClientRect();
+  const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
+  const scaleX = p.natW / p.canvas.width, scaleY = p.natH / p.canvas.height;
+  return [Math.round(cx * scaleX), Math.round(cy * scaleY)];
+}
+
+function inferRectCorner4(p1, p2, p3) {
+  // A parallelogram's diagonals share a midpoint -- corner4 = corner1 + corner3 - corner2.
+  return [p1[0] + p3[0] - p2[0], p1[1] + p3[1] - p2[1]];
+}
+
+function hitTestHandle(p, natX, natY) {
+  if (!p.rectMode || p.points.length !== 4) return false;
+  const [hx, hy] = p.points[3];
+  // DRAG_HIT_RADIUS_PX is a screen/CSS-pixel radius; canvas.width == the CSS
+  // display width (see loadFrame), so natW/canvas.width converts it into the
+  // natural-image-pixel space natX/natY and the stored points are both in.
+  const naturalRadius = DRAG_HIT_RADIUS_PX * (p.natW / p.canvas.width);
+  return Math.hypot(natX - hx, natY - hy) <= naturalRadius;
+}
+
+// Exactly ONE pair of window-level listeners for the whole page's lifetime
+// (not one per loadFrame() call, which would stack a new pair on every
+// "Load frame" click and leak). draggingPicker names which picker (if any)
+// is currently mid-drag; a fast drag that leaves the canvas still tracks and
+// releases correctly since these are window-level, not canvas-level.
+let draggingPicker = null;
+window.addEventListener('mousemove', (ev) => {
+  if (!draggingPicker) return;
+  const p = state.pickers[draggingPicker];
+  if (!p) { draggingPicker = null; return; }
+  p.points[3] = canvasToNatural(p, ev);
+  drawPoints(draggingPicker);
+});
+window.addEventListener('mouseup', () => {
+  if (!draggingPicker) return;
+  const p = state.pickers[draggingPicker];
+  draggingPicker = null;
+  if (p) p.justDragged = true;
+});
+
+function wirePickerEvents(name) {
+  const p = state.pickers[name];
+  p.canvas.onclick = null; p.canvas.onmousedown = null;
+
+  p.canvas.onmousedown = (ev) => {
+    if (!p.rectMode) return;
+    const [nx, ny] = canvasToNatural(p, ev);
+    if (hitTestHandle(p, nx, ny)) { draggingPicker = name; ev.preventDefault(); }
+  };
+
+  p.canvas.onclick = (ev) => {
+    if (p.justDragged) { p.justDragged = false; return; } // mouseup already placed it
+    const [nx, ny] = canvasToNatural(p, ev);
+
+    if (p.rectMode && p.points.length === 4) {
+      if (hitTestHandle(p, nx, ny)) return; // handled by mousedown/drag instead
+      p.points[3] = [nx, ny]; // plain click while 4 exist = relocate the 4th corner here
+      drawPoints(name); updatePointCount(name);
+      return;
+    }
+
+    p.points.push([nx, ny]);
+    if (p.rectMode && p.points.length === 3) {
+      p.points.push(inferRectCorner4(p.points[0], p.points[1], p.points[2]));
+    }
+    drawPoints(name);
+    updatePointCount(name);
+  };
+}
+
+function drawPoints(name) {
+  const p = state.pickers[name];
+  const ctx = p.canvas.getContext('2d');
+  ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
+  const scaleX = p.canvas.width / p.natW, scaleY = p.canvas.height / p.natH;
+  ctx.strokeStyle = '#4f9dfa'; ctx.lineWidth = 2;
+  if (p.points.length > 1 && !p.noConnect) {
+    ctx.setLineDash(p.rectMode ? [4, 4] : []);
+    ctx.beginPath();
+    p.points.forEach(([x, y], i) => {
+      const cx = x * scaleX, cy = y * scaleY;
+      if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    });
+    // Rect picker closes at exactly 4 points (the 4th corner IS the close).
+    // The plain polygon picker (zoning) closes as soon as it has a real
+    // polygon (>=3 points) and stays closed as more points are added -- same
+    // "see the actual shape as you go" feedback as the rect picker's 4th
+    // corner, just without a point-count ceiling.
+    if ((p.rectMode && p.points.length === 4) || (!p.rectMode && !p.noConnect && p.points.length >= 3)) {
+      ctx.closePath();
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const dotColor = p.noConnect ? '#3fb950' : '#4f9dfa';
+  p.points.forEach(([x, y], i) => {
+    const cx = x * scaleX, cy = y * scaleY;
+    const isHandle = p.rectMode && i === 3 && p.points.length === 4;
+    ctx.fillStyle = isHandle ? '#5bc8ff' : dotColor;
+    ctx.beginPath(); ctx.arc(cx, cy, isHandle ? 7 : 4, 0, 2 * Math.PI); ctx.fill();
+    if (isHandle) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.fillStyle = dotColor; ctx.font = '11px monospace';
+    ctx.fillText(p.noConnect ? `gate ${i + 1}` : String(i + 1), cx + 6, cy - 6);
+  });
+}
+
+const POINT_COUNT_EL = { cal: 'calPointCount', zone: 'zonePointCount', gate: 'gatePointCount' };
+function updatePointCount(name) {
+  const p = state.pickers[name];
+  const n = p ? p.points.length : 0;
+  document.getElementById(POINT_COUNT_EL[name]).textContent = `${n} points picked`;
+}
+
+function clearPicker(name) {
+  const p = state.pickers[name];
+  if (!p) return;
+  p.points = []; p.justDragged = false;
+  if (draggingPicker === name) draggingPicker = null;
+  drawPoints(name);
+  updatePointCount(name);
+}
+
+function undoLastPoint(name) {
+  const p = state.pickers[name];
+  if (!p || !p.points.length) return;
+  p.points.pop();
+  // rect mode: popping the auto-placed 4th leaves exactly 3 real corners,
+  // matching the old UI's "undo" -- doesn't re-run inference, just goes back
+  // to "click a 3rd point" state (the next click there is a real click again).
+  drawPoints(name);
+  updatePointCount(name);
+}
+
+function lastPoint(name) {
+  const p = state.pickers[name];
+  return (p && p.points.length) ? p.points[p.points.length - 1] : null;
+}
+
+// ============================================================================
+// /calibration
+// ============================================================================
+async function calFitRect() {
+  const p = state.pickers['cal'];
+  if (!p || p.points.length !== 4) { alert('need exactly 4 points on the calibration frame'); return; }
+  try {
+    const d = await api('/calibration/rect', { method: 'POST',
+      body: { camera: state.cal.activeCam, points: p.points, img_w: p.natW, img_h: p.natH } });
+    logTo('calLog', d);
+    if (d.aspect_unreliable) {
+      logTo('calLog', `WARNING: ${d.aspect_warning}`);
+    }
+    calRefresh();
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+
+function calCapturePending() {
+  const pt = lastPoint('cal');
+  if (!pt || !state.cal.activeCam) { alert('load a frame and click a point first'); return; }
+  state.cal.pending[state.cal.activeCam] = pt;
+  document.getElementById('calPending').textContent = JSON.stringify(state.cal.pending);
+}
+function calResetPending() { state.cal.pending = {}; document.getElementById('calPending').textContent = '{}'; }
+function calCommitPending() {
+  if (Object.keys(state.cal.pending).length < 1) return;
+  state.cal.align.push(state.cal.pending);
+  state.cal.pending = {};
+  document.getElementById('calPending').textContent = '{}';
+  document.getElementById('calAlignCount').textContent = state.cal.align.length;
+}
+function calClearAlign() { state.cal.align = []; document.getElementById('calAlignCount').textContent = 0; }
+async function calRunAlign() {
+  try {
+    const d = await api('/calibration/align', { method: 'POST', body: { points: state.cal.align } });
+    logTo('calLog', d);
+    calRefresh();
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+
+function calCaptureCross() {
+  const pt = lastPoint('cal');
+  if (!pt || !state.cal.activeCam) { alert('load a frame and click a point first'); return; }
+  state.cal.crossPending[state.cal.activeCam] = pt;
+  document.getElementById('calCrossPending').textContent = JSON.stringify(state.cal.crossPending);
+}
+function calClearCross() { state.cal.crossPending = {}; document.getElementById('calCrossPending').textContent = '{}'; }
+async function calRunCrossCheck() {
+  try {
+    const d = await api('/calibration/cross_check', { method: 'POST', body: { points: state.cal.crossPending } });
+    logTo('calLog', d);
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+
+async function calRefresh() {
+  try {
+    const d = await api('/calibration');
+    const tbody = document.querySelector('#calTable tbody'); tbody.innerHTML = '';
+    for (const [cam, c] of Object.entries(d)) {
+      const diag = c.diagnostics || {};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${cam}</td><td><span class="badge ${!!diag.aligned}">${!!diag.aligned}</span></td>
+        <td>${diag.px_err_mean ?? '-'}</td><td><button onclick="calDelete('${cam}')">delete</button></td>`;
+      tbody.appendChild(tr);
+    }
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+async function calDelete(cam) {
+  try { const d = await api(`/calibration/${encodeURIComponent(cam)}`, { method: 'DELETE' }); logTo('calLog', d); calRefresh(); }
+  catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+
+// ---- gates -------------------------------------------------------------
+function calStageGates() {
+  const p = state.pickers['gate'];
+  const cam = state.cal.gateActiveCam;
+  if (!p || !p.points.length || !cam) { alert('load a frame and click at least one point first'); return; }
+  state.cal.gates[cam] = p.points.map(pt => [...pt]); // replaces this camera's staged points
+  document.getElementById('calGatesStaged').textContent = JSON.stringify(state.cal.gates);
+}
+async function calSaveGates() {
+  const gates = Object.entries(state.cal.gates).map(([camera, points]) => ({ camera, points }));
+  if (!gates.length) { alert('stage at least one camera\'s gate points first'); return; }
+  try {
+    const d = await api('/calibration/gates', { method: 'POST', body: { gates } });
+    logTo('calLog', d);
+    document.getElementById('calGatesCurrent').textContent = `${d.n} gate(s) saved -> ${d.saved}`;
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+async function calRefreshGates() {
+  try {
+    const d = await api('/calibration/gates');
+    logTo('calLog', d);
+    document.getElementById('calGatesCurrent').textContent = `${d.gates.length} gate(s) currently saved`;
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+async function calDeleteGates() {
+  try {
+    const d = await api('/calibration/gates', { method: 'DELETE' });
+    logTo('calLog', d);
+    state.cal.gates = {};
+    document.getElementById('calGatesStaged').textContent = '{}';
+    document.getElementById('calGatesCurrent').textContent = '0 gate(s) currently saved';
+  } catch (e) { logTo('calLog', { error: e.status, ...e.data }); }
+}
+
+// ---- BEV overlay (client-side homography warp + blend, no new backend) --
+function invert3x3(m) {
+  const [[a, b, c], [d, e, f], [g, h, i]] = m;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+  const D = -(b * i - c * h), E = a * i - c * g, F = -(a * h - b * g);
+  const G = b * f - c * e, H = -(a * f - c * d), I = a * e - b * d;
+  const det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-12) return null;
+  return [[A, D, G], [B, E, H], [C, F, I]].map(row => row.map(v => v / det));
+}
+function applyH(H, x, y) {
+  const w = H[2][0] * x + H[2][1] * y + H[2][2];
+  if (Math.abs(w) < 1e-12) return [NaN, NaN];
+  return [(H[0][0] * x + H[0][1] * y + H[0][2]) / w, (H[1][0] * x + H[1][1] * y + H[1][2]) / w];
+}
+function loadImageCORS(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // needed so getImageData doesn't taint the canvas
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+async function bevRefresh() {
+  const checked = [...document.querySelectorAll('.bevCamCb:checked')].map(cb => cb.value);
+  if (!checked.length) { alert('check at least one camera'); return; }
+  let cal;
+  try { cal = await api('/calibration'); } catch (e) { logTo('calLog', { error: e.status, ...e.data }); return; }
+
+  const camData = {};
+  for (const cam of checked) {
+    if (!cal[cam]) { logTo('calLog', `bev: cam ${cam} not calibrated, skipped`); continue; }
+    const Hinv = cal[cam].Hinv;
+    const H = invert3x3(Hinv);
+    if (!H) { logTo('calLog', `bev: cam ${cam}'s Hinv is not invertible, skipped`); continue; }
+    const source = state.sources[cam];
+    if (!source) { logTo('calLog', `bev: cam ${cam} has no registered source, skipped`); continue; }
+    const frame = await loadImageCORS(`${apiBase()}/frame?source=${encodeURIComponent(source)}&_=${Date.now()}`);
+    if (!frame) { logTo('calLog', `bev: could not load a frame for cam ${cam}, skipped`); continue; }
+    const off = document.createElement('canvas');
+    off.width = frame.naturalWidth; off.height = frame.naturalHeight;
+    const offCtx = off.getContext('2d');
+    offCtx.drawImage(frame, 0, 0);
+    let imgData;
+    try { imgData = offCtx.getImageData(0, 0, off.width, off.height); }
+    catch (e) { logTo('calLog', `bev: cam ${cam} frame is CORS-tainted, cannot read pixels (${e.message})`); continue; }
+    camData[cam] = { Hinv, H, w: off.width, h: off.height, data: imgData.data };
+  }
+  const camList = Object.keys(camData);
+  if (!camList.length) { alert('no usable calibrated+sourced cameras among those checked'); return; }
+
+  // union world bbox from each camera's 4 image corners, mapped through Hinv
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const cam of camList) {
+    const { Hinv, w, h } = camData[cam];
+    for (const [px, py] of [[0, 0], [w, 0], [w, h], [0, h]]) {
+      const [wx, wy] = applyH(Hinv, px, py);
+      if (Number.isFinite(wx) && Number.isFinite(wy)) {
+        xmin = Math.min(xmin, wx); xmax = Math.max(xmax, wx);
+        ymin = Math.min(ymin, wy); ymax = Math.max(ymax, wy);
+      }
+    }
+  }
+  if (!Number.isFinite(xmin) || xmax <= xmin || ymax <= ymin) {
+    alert('could not derive a floor-plane bounding box from these cameras\' calibration'); return;
+  }
+
+  const size = parseInt(document.getElementById('bevSize').value, 10) || 420;
+  const canvas = document.getElementById('bevCanvas');
+  canvas.width = size; canvas.height = size;
+  const out = canvas.getContext('2d').createImageData(size, size);
+  for (let by = 0; by < size; by++) {
+    const wy = ymax - (by / size) * (ymax - ymin); // flip so +y is "up" on screen
+    for (let bx = 0; bx < size; bx++) {
+      const wx = xmin + (bx / size) * (xmax - xmin);
+      let r = 0, g = 0, b = 0, n = 0;
+      for (const cam of camList) {
+        const { H, w, h, data } = camData[cam];
+        const [px, py] = applyH(H, wx, wy);
+        if (px >= 0 && px < w - 1 && py >= 0 && py < h - 1) {
+          const idx = (Math.round(py) * w + Math.round(px)) * 4;
+          r += data[idx]; g += data[idx + 1]; b += data[idx + 2]; n++;
+        }
+      }
+      const o = (by * size + bx) * 4;
+      if (n) { out.data[o] = r / n; out.data[o + 1] = g / n; out.data[o + 2] = b / n; out.data[o + 3] = 255; }
+      else { out.data[o] = 10; out.data[o + 1] = 12; out.data[o + 2] = 16; out.data[o + 3] = 255; }
+    }
+  }
+  canvas.getContext('2d').putImageData(out, 0, 0);
+  logTo('calLog', { bev_refreshed: camList, world_bbox: { xmin, xmax, ymin, ymax } });
+}
+
+// ============================================================================
+// /zoning
+// ============================================================================
+async function zoneCreate() {
+  const p = state.pickers['zone'];
+  const name = document.getElementById('zoneName').value.trim();
+  const camId = document.getElementById('zoneCam').value;
+  if (!name || !p || p.points.length < 3 || !camId) { alert('need a name, a camera, and ≥3 polygon points'); return; }
+  const sources = selectedSourcesObj('zoneCamCb');
+  sources[camId] = state.sources[camId]; // the drawn-on camera must be included regardless of checkbox state, or the API 422s
+  try {
+    const d = await api('/zoning/zones', { method: 'POST', body: { name, camera: camId, polygon: p.points, sources } });
+    logTo('zoneLog', d); zoneRefresh();
+  } catch (e) { logTo('zoneLog', { error: e.status, ...e.data }); }
+}
+async function zoneRefresh() {
+  try {
+    const d = await api('/zoning/zones');
+    const tbody = document.querySelector('#zoneTable tbody'); tbody.innerHTML = '';
+    for (const [name, z] of Object.entries(d)) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${name}</td><td>${z.mode}</td><td>${z.camera ?? (z.converted_from ? z.converted_from.camera : '-')}</td>
+        <td><button onclick="zoneDelete('${name}')">delete</button></td>`;
+      tbody.appendChild(tr);
+    }
+  } catch (e) { logTo('zoneLog', { error: e.status, ...e.data }); }
+}
+async function zoneDelete(name) {
+  try { const d = await api(`/zoning/zones/${encodeURIComponent(name)}`, { method: 'DELETE' }); logTo('zoneLog', d); zoneRefresh(); }
+  catch (e) { logTo('zoneLog', { error: e.status, ...e.data }); }
+}
+
+// ============================================================================
+// WebSocket helper, shared by /zoning and /people
+// ============================================================================
+function toggleWs(name) {
+  if (state.ws[name]) { state.ws[name].close(); return; }
+  const path = name === 'zone'
+    ? `/zoning/occupancy/stream?threshold=${document.getElementById('zoneThreshold').value || 0}`
+    : `/people/tracks/stream`;
+  const ws = new WebSocket(wsBase() + path);
+  const btn = document.getElementById(name === 'zone' ? 'zoneWsBtn' : 'peopleWsBtn');
+  const pill = document.getElementById(name === 'zone' ? 'zoneWsStatus' : 'peopleWsStatus');
+  ws.onopen = () => {
+    btn.textContent = 'Disconnect'; pill.textContent = 'connected'; pill.className = 'pill ok';
+    if (name === 'people') peopleRefreshZones(); // best-effort; re-click "Refresh zones on map" after creating/editing a zone
+  };
+  ws.onclose = () => { btn.textContent = name === 'zone' ? 'Connect' : 'Connect tracks stream'; pill.textContent = 'disconnected'; pill.className = 'pill unknown'; state.ws[name] = null; };
+  ws.onerror = () => { pill.textContent = 'error'; pill.className = 'pill bad'; };
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (name === 'zone') { logTo('zoneLog', msg); renderZoneCounts(msg); }
+    else { logTo('peopleLog', msg); renderPeopleTracks(msg); liveOnTracks(msg); }
+  };
+  state.ws[name] = ws;
+}
+
+const zoneLastCounts = {};
+function renderZoneCounts(msg) {
+  if (msg.type === 'snapshot') { for (const [z, s] of Object.entries(msg.zones || {})) zoneLastCounts[z] = s.count; }
+  else if (msg.type === 'update') { zoneLastCounts[msg.zone] = msg.count; }
+  const tbody = document.querySelector('#zoneCounts tbody'); tbody.innerHTML = '';
+  for (const [z, c] of Object.entries(zoneLastCounts)) {
+    const tr = document.createElement('tr'); tr.innerHTML = `<td>${z}</td><td>${c}</td>`; tbody.appendChild(tr);
+  }
+}
+
+// ============================================================================
+// /people
+// ============================================================================
+async function peopleStatus() {
+  try {
+    const d = await api('/people/status');
+    document.getElementById('peoplePhase').textContent = d.phase;
+    document.getElementById('peoplePhase').className = 'pill ' + (d.phase === 'running' ? 'ok' : d.phase === 'error' ? 'bad' : 'unknown');
+    document.getElementById('peopleActive').textContent = d.active_tracks ?? '-';
+    document.getElementById('peopleScale').textContent = d.person_scale ?? '-';
+    document.getElementById('peopleFps').textContent = d.fps ?? '-';
+    document.getElementById('peopleWarnings').textContent = (d.warnings || []).concat(d.error ? [d.error] : []).join(' | ');
+    state.people.room = d.room;
+    logTo('peopleLog', d);
+  } catch (e) { logTo('peopleLog', { error: e.status, ...e.data }); }
+}
+function peopleAutoPollToggle() {
+  const on = document.getElementById('peopleAutoPoll').checked;
+  if (on) { peopleStatus(); state.people.pollTimer = setInterval(peopleStatus, 2000); }
+  else { clearInterval(state.people.pollTimer); state.people.pollTimer = null; }
+}
+// state.people.worldZones: [{name, polygon: [[x_cm,y_cm],...]}] -- cached from
+// GET /zoning/zones, WORLD-mode only. Pixel-mode zones live in one camera's
+// own pixel space, not the shared floor plane this canvas draws -- there is
+// no meaningful way to overlay one here, so they're deliberately excluded
+// rather than drawn in some misleading ad-hoc projection.
+async function peopleRefreshZones() {
+  try {
+    const zones = await api('/zoning/zones');
+    state.people.worldZones = Object.entries(zones)
+      .filter(([, z]) => z.mode === 'world')
+      .map(([name, z]) => ({ name, polygon: z.polygon_m.map(([x, y]) => [x * 100, y * 100]) }));
+    logTo('peopleLog', { zones_overlaid: state.people.worldZones.map(z => z.name) });
+  } catch (e) {
+    logTo('peopleLog', { error: e.status, ...e.data });
+  }
+  if (state.people.lastTracksMsg) renderPeopleTracks(state.people.lastTracksMsg);
+}
+
+function renderPeopleTracks(msg) {
+  state.people.lastTracksMsg = msg; // so peopleRefreshZones() can redraw without waiting for the next WS message
+  const tracks = msg.tracks || [];
+  const tbody = document.querySelector('#peopleTable tbody'); tbody.innerHTML = '';
+  for (const t of tracks) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${t.id}</td><td>${t.x}</td><td>${t.y}</td><td>${t.hits}</td><td>${t.misses}</td>`;
+    tbody.appendChild(tr);
+  }
+  const canvas = document.getElementById('peopleMap');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const room = state.people.room;
+  if (!room) { ctx.fillStyle = '#7d8590'; ctx.font = '12px monospace'; ctx.fillText('no room bounds yet -- GET /people/status once running', 10, 20); return; }
+  const zones = state.people.worldZones || [];
+
+  // View extent = tracked room UNION every zone, so a zone lying (partly)
+  // outside the tracked area is still VISIBLE rather than silently drawn off
+  // the edge of the canvas. That off-canvas case is not hypothetical: it is
+  // exactly what a too-small room looks like, and hiding it made a real
+  // detection bug look like a rendering glitch.
+  let vx0 = room.xmin, vx1 = room.xmax, vy0 = room.ymin, vy1 = room.ymax;
+  for (const z of zones) for (const [x, y] of z.polygon) {
+    vx0 = Math.min(vx0, x); vx1 = Math.max(vx1, x);
+    vy0 = Math.min(vy0, y); vy1 = Math.max(vy1, y);
+  }
+  const pad = 20;
+  // ONE uniform scale for both axes -- stretching them independently makes a
+  // square zone render as a rectangle, which is actively misleading on a map
+  // whose whole purpose is judging real floor geometry.
+  const s = Math.min((canvas.width - 2 * pad) / ((vx1 - vx0) || 1),
+                     (canvas.height - 2 * pad) / ((vy1 - vy0) || 1));
+  const offX = (canvas.width - (vx1 - vx0) * s) / 2;
+  const offY = (canvas.height - (vy1 - vy0) * s) / 2;
+  const toCanvas = (x, y) => [offX + (x - vx0) * s, canvas.height - offY - (y - vy0) * s];
+
+  // the tracked area (= the POM detection grid). Anything outside this box
+  // CANNOT be detected, so drawing it explicitly is what makes a
+  // zone-outside-the-grid problem self-evident instead of invisible.
+  const [rx0, ry0] = toCanvas(room.xmin, room.ymin);
+  const [rx1, ry1] = toCanvas(room.xmax, room.ymax);
+  ctx.strokeStyle = '#2a2f3a'; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+  ctx.strokeRect(Math.min(rx0, rx1), Math.min(ry0, ry1), Math.abs(rx1 - rx0), Math.abs(ry1 - ry0));
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#7d8590'; ctx.font = '9px monospace';
+  ctx.fillText('tracked area', Math.min(rx0, rx1) + 3, Math.min(ry0, ry1) + 10);
+
+  // zone outlines UNDER the tracks, so a dot is never hidden behind a zone edge
+  ctx.lineWidth = 1.5;
+  for (const z of zones) {
+    if (!z.polygon.length) continue;
+    // How much of this zone actually falls inside the tracked area (= the POM
+    // grid)? A plain "do the boxes touch at all" test is useless here: the
+    // real-world case that motivated this had a 2.1% corner clip, which is
+    // functionally dead but would pass any touch-test. Report the FRACTION.
+    const zx0 = Math.min(...z.polygon.map(p => p[0])), zx1 = Math.max(...z.polygon.map(p => p[0]));
+    const zy0 = Math.min(...z.polygon.map(p => p[1])), zy1 = Math.max(...z.polygon.map(p => p[1]));
+    const ow = Math.max(0, Math.min(zx1, room.xmax) - Math.max(zx0, room.xmin));
+    const oh = Math.max(0, Math.min(zy1, room.ymax) - Math.max(zy0, room.ymin));
+    const zarea = Math.max((zx1 - zx0) * (zy1 - zy0), 1e-9);
+    const inside = (ow * oh) / zarea;          // 1.0 = fully inside the tracked area
+    const ok = inside >= 0.99;
+    ctx.strokeStyle = ok ? '#d29922' : '#f85149';
+    ctx.fillStyle = ok ? 'rgba(210,153,34,0.12)' : 'rgba(248,81,73,0.12)';
+    ctx.beginPath();
+    z.polygon.forEach(([x, y], i) => {
+      const [cx, cy] = toCanvas(x, y);
+      if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    });
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    const [lx, ly] = toCanvas(z.polygon[0][0], z.polygon[0][1]);
+    ctx.fillStyle = ok ? '#d29922' : '#f85149'; ctx.font = '10px monospace';
+    ctx.fillText(ok ? z.name : `${z.name} -- only ${(inside * 100).toFixed(0)}% inside tracked area`,
+                 lx + 4, ly - 4);
+  }
+
+  ctx.fillStyle = '#4f9dfa';
+  for (const t of tracks) {
+    const [cx, cy] = toCanvas(t.x, t.y);
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = '#d8dee9'; ctx.font = '10px monospace'; ctx.fillText(String(t.id), cx + 8, cy - 8); ctx.fillStyle = '#4f9dfa';
+  }
+}
+
+// ============================================================================
+// /face
+// ============================================================================
+async function faceEnroll() {
+  const name = document.getElementById('faceEnrollName').value.trim();
+  const file = document.getElementById('faceEnrollFile').files[0];
+  if (!name || !file) { alert('need a name and an image'); return; }
+  const form = new FormData(); form.append('name', name); form.append('image', file);
+  try { const d = await api('/face/enroll', { method: 'POST', form }); logTo('faceLog', d); faceList(); }
+  catch (e) { logTo('faceLog', { error: e.status, ...e.data }); }
+}
+async function faceList() {
+  try {
+    const d = await api('/face/faces');
+    const tbody = document.querySelector('#faceTable tbody'); tbody.innerHTML = '';
+    for (const p of d) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.name}</td><td>${(p.embeddings || []).length}</td><td><button onclick="faceDelete('${p.name}')">delete</button></td>`;
+      tbody.appendChild(tr);
+    }
+  } catch (e) { logTo('faceLog', { error: e.status, ...e.data }); }
+}
+async function faceDelete(name) {
+  try { const d = await api(`/face/faces/${encodeURIComponent(name)}`, { method: 'DELETE' }); logTo('faceLog', d); faceList(); }
+  catch (e) { logTo('faceLog', { error: e.status, ...e.data }); }
+}
+async function faceScan() {
+  const source = document.getElementById('faceScanSource').value.trim();
+  const timeout_seconds = Number(document.getElementById('faceScanTimeout').value || 15);
+  if (!source) { alert('need a source'); return; }
+  logTo('faceLog', `scanning ${source} (up to ${timeout_seconds}s)...`);
+  try { const d = await api('/face/scan', { method: 'POST', body: { source, timeout_seconds } }); logTo('faceLog', d); }
+  catch (e) { logTo('faceLog', { error: e.status, ...e.data }); }
+}
+
+// ============================================================================
+// Alert-stream panels: weapon / fire / emotion / wanted share ONE shape
+// (features/common/live_alert_service.py) -- built once, mounted 4x.
+// ============================================================================
+function mountAlertPanel(feature) {
+  const el = document.getElementById(`panel-${feature}`);
+  el.innerHTML = `
+    <h2>/${feature} — alert stream</h2>
+    <div class="small">Which cameras this feature watches is set on the /cameras panel above (tick "${feature}" there).</div>
+    <div class="row">
+      <button onclick="alertListSources('${feature}')">GET /${feature}/sources</button>
+    </div>
+    <div class="row">
+      <button class="primary" id="alertWsBtn-${feature}" onclick="alertToggleWs('${feature}')">Connect</button>
+      <span id="alertWsStatus-${feature}" class="pill unknown">disconnected</span>
+    </div>
+    <table id="alertTable-${feature}"><thead><tr><th>camera</th><th>detections</th></tr></thead><tbody></tbody></table>
+    <pre class="log" id="alertLog-${feature}"></pre>
+  `;
+}
+async function alertListSources(feature) {
+  try { const d = await api(`/${feature}/sources`); logTo(`alertLog-${feature}`, d); }
+  catch (e) { logTo(`alertLog-${feature}`, { error: e.status, ...e.data }); }
+}
+const alertLastState = {}; // {feature: {camera: detections[]}}
+function alertToggleWs(feature) {
+  const key = `alert-${feature}`;
+  if (state.ws[key]) { state.ws[key].close(); return; }
+  const ws = new WebSocket(wsBase() + `/${feature}/alerts/stream`);
+  const btn = document.getElementById(`alertWsBtn-${feature}`);
+  const pill = document.getElementById(`alertWsStatus-${feature}`);
+  ws.onopen = () => { btn.textContent = 'Disconnect'; pill.textContent = 'connected'; pill.className = 'pill ok'; };
+  ws.onclose = () => { btn.textContent = 'Connect'; pill.textContent = 'disconnected'; pill.className = 'pill unknown'; state.ws[key] = null; };
+  ws.onerror = () => { pill.textContent = 'error'; pill.className = 'pill bad'; };
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    logTo(`alertLog-${feature}`, msg);
+    alertLastState[feature] = alertLastState[feature] || {};
+    if (msg.type === 'snapshot') Object.assign(alertLastState[feature], msg.cameras || {});
+    else if (msg.type === 'update') alertLastState[feature][msg.camera] = msg.detections;
+    const tbody = document.querySelector(`#alertTable-${feature} tbody`); tbody.innerHTML = '';
+    for (const [cam, dets] of Object.entries(alertLastState[feature])) {
+      const tr = document.createElement('tr');
+      const detStr = (dets && dets.length) ? dets.map(d => `${d.class} (${d.confidence.toFixed(2)})`).join(', ') : '—';
+      tr.innerHTML = `<td>${cam}</td><td>${detStr}</td>`;
+      tbody.appendChild(tr);
+    }
+  };
+  state.ws[key] = ws;
+}
+['weapon', 'fire', 'emotion', 'wanted'].forEach(mountAlertPanel);
+
+// ============================================================================
+// /wanted extras (watchlist + threshold) -- alert-panel shape mounted above
+// ============================================================================
+async function wantedEnroll() {
+  const name = document.getElementById('wantedName').value.trim();
+  const file = document.getElementById('wantedFile').files[0];
+  if (!name || !file) { alert('need a name and an image'); return; }
+  const form = new FormData(); form.append('name', name); form.append('image', file);
+  try { const d = await api('/wanted/watchlist', { method: 'POST', form }); logTo('wantedLog', d); wantedList(); }
+  catch (e) { logTo('wantedLog', { error: e.status, ...e.data }); }
+}
+async function wantedList() {
+  const inc = document.getElementById('wantedIncludeEmb').checked;
+  try {
+    const d = await api(`/wanted/watchlist${inc ? '?include_embeddings=true' : ''}`);
+    const tbody = document.querySelector('#wantedTable tbody'); tbody.innerHTML = '';
+    for (const p of d) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.name}</td><td>${p.embeddings_count}</td><td><button onclick="wantedDelete('${p.name}')">delete</button></td>`;
+      tbody.appendChild(tr);
+    }
+    logTo('wantedLog', d);
+  } catch (e) { logTo('wantedLog', { error: e.status, ...e.data }); }
+}
+async function wantedDelete(name) {
+  try { const d = await api(`/wanted/watchlist/${encodeURIComponent(name)}`, { method: 'DELETE' }); logTo('wantedLog', d); wantedList(); }
+  catch (e) { logTo('wantedLog', { error: e.status, ...e.data }); }
+}
+async function wantedThresholdGet() {
+  try {
+    const d = await api('/wanted/threshold');
+    document.getElementById('wantedThreshold').value = d.threshold;
+    document.getElementById('wantedMinFacePx').value = d.min_face_px;
+    logTo('wantedLog', d);
+  } catch (e) { logTo('wantedLog', { error: e.status, ...e.data }); }
+}
+async function wantedThresholdPut() {
+  const body = {};
+  const t = document.getElementById('wantedThreshold').value; if (t !== '') body.threshold = Number(t);
+  const m = document.getElementById('wantedMinFacePx').value; if (m !== '') body.min_face_px = Number(m);
+  if (Object.keys(body).length === 0) { alert('set at least one field'); return; }
+  try { const d = await api('/wanted/threshold', { method: 'PUT', body }); logTo('wantedLog', d); }
+  catch (e) { logTo('wantedLog', { error: e.status, ...e.data }); }
+}
+
+// init
+pingApi();
+loadCameras();
+</script>
+</body>
+</html>

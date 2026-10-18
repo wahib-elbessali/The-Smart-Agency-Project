@@ -1,0 +1,6 @@
+{
+  "bridge_url": "http://127.0.0.1:8100",
+  "jpeg_quality": 75,
+  "max_width": 960,
+  "timeout": 35.0
+}

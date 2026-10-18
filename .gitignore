@@ -1,0 +1,31 @@
+# Python (ai/, backend/)
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Node (frontend/)
+node_modules/
+dist/
+build/
+.env
+.env.local
+
+# PlatformIO / Arduino (hardware/)
+.pio/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI service runtime state (ai/features/data/): zones, calibration, and the
+# two face galleries. Per-deployment, not code -- and the galleries are
+# biometric data tied to named real people, so committing them is
+# effectively permanent.
+ai/features/data/*
+!ai/features/data/.gitkeep
+
+# Downloaded model weights (~55MB, re-download on demand)
+ai/features/models/

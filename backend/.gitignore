@@ -1,0 +1,26 @@
+# Environnement Python
+.venv/
+.venv-*/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Variables d'environnement
+.env
+
+# Outils et tests
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Fichiers locaux
+*.log
+dist/
+build/

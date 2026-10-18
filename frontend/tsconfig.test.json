@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    /* Tests need Node globals for filesystem checks, and the jest-dom matcher
+       augmentation that vitest.setup.ts pulls in. App code gets neither. */
+    "types": ["node", "vite/client"],
+    "lib": ["ES2023", "DOM"]
+  },
+  /* REQUIRED, and not redundant. `exclude` is inherited through `extends`, and
+     tsconfig.app.json excludes exactly the files this project is for. Without
+     this line the inherited exclude filters the include below down to
+     vitest.setup.ts alone: the project ends up with no test files in it, tsc
+     finds nothing to check, and `tsc -b` exits 0 no matter what the tests
+     contain. Test files then never typecheck, which is silent - a broken
+     typecheck and a passing one look identical from CI.
+
+     Found on 2026-08-20 by adding `const x: number = "string"` to a test file
+     and watching the build succeed. App code was never affected. */
+  "exclude": [],
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "vitest.setup.ts"]
+}

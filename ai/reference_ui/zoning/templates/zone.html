@@ -1,0 +1,193 @@
+<!doctype html>
+<title>zone drawing</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #ddd; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; font-weight: 600; }
+  .cams { margin-bottom: 8px; }
+  .cams button, .actions button {
+    background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 4px;
+    padding: 6px 14px; margin-right: 6px; cursor: pointer; font-size: 13px;
+  }
+  .cams button.active { background: #3a6; border-color: #3a6; color: #fff; }
+  #canvas-wrap { border: 1px solid #444; display: inline-block; margin-top: 8px; }
+  canvas { display: block; cursor: crosshair; }
+  .panel { margin-top: 14px; display: flex; gap: 24px; flex-wrap: wrap; }
+  .box { background: #232323; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 14px; font-size: 13px; max-width: 340px; }
+  .box h3 { margin: 0 0 6px 0; font-size: 13px; color: #9c9; }
+  .box ul { margin: 0; padding-left: 18px; }
+  .actions { margin-top: 10px; }
+  #log { font-size: 12px; color: #999; margin-top: 8px; white-space: pre-wrap; }
+  #hint { font-size: 13px; color: #ccc; margin-top: 6px; max-width: 700px; }
+</style>
+
+<h1>zone drawing</h1>
+<p style="font-size:13px; color:#999; max-width:700px; margin-top:-8px;">
+  Per-feature: draw the floor areas THIS feature cares about (a queue, a doorway, a private room).
+  No calibration needed -- a zone is a polygon in one camera's own pixel space, checked only against
+  that camera's own detections at run time. For a one-time site setup (needed only if a later
+  feature wants a real floor position), use <code>reference_ui/calibration/calibration_app.py</code> instead.
+</p>
+
+<div class="cams" id="cams"></div>
+
+<div id="hint">Click ANY NUMBER of points (>= 3) tracing the zone's edge on THIS camera's own image.
+The dashed line shows where it will close automatically. Click "close zone" when done to name and
+save it -- checked only against this camera's own detections, no calibration needed.</div>
+
+<div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+
+<div class="actions">
+  <button id="btn-undo">undo last point</button>
+  <button id="btn-close-zone">close zone (connects back to point 1 automatically)</button>
+  <button id="btn-save-zones">save zones now</button>
+</div>
+
+<div class="panel">
+  <div class="box" id="cheatsheet">
+    <h3>zones are per camera -- no calibration needed</h3>
+    Pick a camera tab, click ANY NUMBER of points (3 or more) tracing the real area you
+    want on THAT camera's own image, then "close zone" -- it connects your last point
+    straight back to your first point automatically, you don't click the first point
+    again. A detection counts if its feet land inside the region, checked only against
+    that one camera's own detections. No real-world measurement, no calibration, nothing
+    to get inconsistent across cameras.
+    <br><br>
+    <b>saving</b> -- zones save the moment you close one, AND any time you click "save
+    zones now" (same file, just an explicit trigger if you want the confirmation).
+  </div>
+  <div class="box">
+    <h3>zones</h3>
+    <ul id="zone-list"></ul>
+  </div>
+</div>
+
+<div id="log"></div>
+<div id="js-fallback" style="color:#f66; margin-top:10px;">
+  If the page looks static/unresponsive (no image, clicking does nothing), JavaScript failed to
+  run -- open the browser console (F12) for the actual error.
+</div>
+
+<script>
+document.getElementById("js-fallback").remove();   // only reached if the script parses+runs at all
+const cams = {{ cams|tojson }};
+let curCam = cams[0];
+let zonePts = [];         // accumulating polygon, current camera, pixel coords
+const img = new Image();
+
+function log(msg) {
+  const el = document.getElementById("log");
+  el.textContent = msg + "\n" + el.textContent;
+}
+
+function drawCamTabs() {
+  const el = document.getElementById("cams");
+  el.innerHTML = "";
+  cams.forEach(c => {
+    const b = document.createElement("button");
+    b.textContent = "cam " + c;
+    if (c === curCam) b.classList.add("active");
+    b.onclick = () => { curCam = c; zonePts = []; loadFrame(); };
+    el.appendChild(b);
+  });
+}
+
+function loadFrame() {
+  drawCamTabs();
+  img.onload = () => {
+    const canvas = document.getElementById("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    // scale display down if wide, keep internal resolution native so pixel
+    // coordinates sent to the server are always true image pixels
+    const maxW = 1000;
+    if (img.naturalWidth > maxW) {
+      canvas.style.width = maxW + "px";
+      canvas.style.height = (img.naturalHeight * maxW / img.naturalWidth) + "px";
+    } else {
+      canvas.style.width = img.naturalWidth + "px";
+      canvas.style.height = img.naturalHeight + "px";
+    }
+    redraw();
+  };
+  img.onerror = () => log(`ERROR: could not load /frame/${curCam}.png -- check the terminal running the app for a traceback`);
+  img.src = "/frame/" + curCam + ".png?t=" + Date.now();
+}
+
+function redraw() {
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  if (!zonePts.length) return;
+  // solid line: edges you've actually clicked so far
+  ctx.strokeStyle = "#ff9900"; ctx.lineWidth = 2; ctx.setLineDash([]);
+  ctx.beginPath();
+  zonePts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+  ctx.stroke();
+  // dashed line: the closing edge "close zone" will add automatically, from
+  // your last point back to your first -- shown live so it's obvious before
+  // you commit
+  if (zonePts.length >= 3) {
+    ctx.strokeStyle = "#ffcc66"; ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(zonePts[zonePts.length - 1][0], zonePts[zonePts.length - 1][1]);
+    ctx.lineTo(zonePts[0][0], zonePts[0][1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  zonePts.forEach(([x, y], i) => {
+    ctx.fillStyle = i === 0 ? "#0f0" : "#ff9900";
+    ctx.beginPath(); ctx.arc(x, y, i === 0 ? 6 : 4, 0, 7); ctx.fill();
+  });
+}
+
+function canvasXY(evt) {
+  const canvas = document.getElementById("canvas");
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+  return [(evt.clientX - rect.left) * sx, (evt.clientY - rect.top) * sy];
+}
+
+document.getElementById("canvas").addEventListener("click", (evt) => {
+  zonePts.push(canvasXY(evt));
+  redraw();
+});
+
+document.getElementById("btn-undo").onclick = () => {
+  zonePts.pop();
+  redraw();
+};
+
+document.getElementById("btn-save-zones").onclick = async () => {
+  const r = await fetch("/zones_save", {method: "POST"}).then(r => r.json());
+  log(`saved ${r.n} zone(s) -> ${r.saved}`);
+};
+
+document.getElementById("btn-close-zone").onclick = async () => {
+  if (zonePts.length < 3) { alert("need >= 3 points"); return; }
+  const name = prompt("zone name:");
+  if (!name) return;
+  const r = await fetch("/zone", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cam: curCam, name: name, polygon: zonePts})
+  }).then(r => r.json());
+  if (!r.ok) { alert(r.error); return; }
+  log(`zone '${name}' (cam ${curCam}) -> ${JSON.stringify(r.polygon_px)}  saved -> ${r.saved}`);
+  zonePts = [];
+  redraw();
+  refreshLists();
+};
+
+async function refreshLists() {
+  const s = await fetch("/state").then(r => r.json());
+  const zl = document.getElementById("zone-list");
+  zl.innerHTML = "";
+  Object.entries(s.zones).forEach(([name, m]) => {
+    const li = document.createElement("li");
+    li.textContent = `${name} (${m})`;
+    zl.appendChild(li);
+  });
+}
+
+loadFrame();
+refreshLists();
+</script>

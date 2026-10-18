@@ -1,0 +1,11 @@
+{
+  "_about": "The single list of manual commands each device type accepts. The backend reads this file (Manual controls buttons, and the only actions it will send); the firmware must implement every action listed for its device type (ingestion.md 6b); a test fails if ingestion.md does not name them. Add a command here, in ingestion.md and in the firmware, in the same change.",
+  "ACCESS_SENSORS": [
+    { "action": "lock", "label": "Lock" },
+    { "action": "unlock", "label": "Unlock" }
+  ],
+  "DOOR": [
+    { "action": "lock", "label": "Lock" },
+    { "action": "unlock", "label": "Unlock" }
+  ]
+}

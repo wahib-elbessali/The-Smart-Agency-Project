@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Path alias - mirrors the alias in vite.config.ts.
+       No `baseUrl`: it is deprecated in TypeScript 6, and without it `paths`
+       resolves relative to this file, which is what we want anyway. */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
+    /* Linting.
+       `strict` is not in the Vite template but is the reason this project is
+       TypeScript at all: a field name that drifts from contracts/api.md should
+       be a compile error, not a blank panel at runtime. */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"],
+  /* Tests are typechecked by tsconfig.test.json, which gives them Node and
+     jest-dom types that application code has no business seeing. */
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}

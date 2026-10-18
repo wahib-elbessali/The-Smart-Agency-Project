@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartAgency</title>
+    <!--
+      Resolves the colour scheme BEFORE the app renders.
+
+      Without this the page paints once with the default dark theme and then
+      swaps, which is a visible flash on every load for anyone on the light
+      theme - and the flash is worse here than in most apps, because the two
+      themes are near-black and near-white.
+
+      Deliberately inline and blocking: a deferred or external script runs
+      after first paint, which is the very thing being avoided. It is a dozen
+      lines, it touches one attribute, and it must not throw - localStorage
+      access alone can throw with site data blocked, so the whole body is
+      wrapped rather than the read.
+
+      The storage key is duplicated from src/theme/ThemeContext.ts. That is the
+      one unavoidable duplication in this feature: this has to run before any
+      module loads. If the key changes there, change it here.
+    -->
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('smartagency.theme')
+          var resolved =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+          document.documentElement.dataset.theme = resolved
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark'
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

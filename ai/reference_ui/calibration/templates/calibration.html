@@ -1,0 +1,1024 @@
+<!doctype html>
+<title>site calibration</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #ddd; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; font-weight: 600; }
+  .cams { margin-bottom: 8px; }
+  .cams button, .mode button, .actions button {
+    background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 4px;
+    padding: 6px 14px; margin-right: 6px; cursor: pointer; font-size: 13px;
+  }
+  .cams button.active, .mode button.active { background: #3a6; border-color: #3a6; color: #fff; }
+  #canvas-wrap { border: 1px solid #444; display: inline-block; margin-top: 8px; }
+  canvas { display: block; cursor: crosshair; }
+  .panel { margin-top: 14px; display: flex; gap: 24px; flex-wrap: wrap; }
+  .box { background: #232323; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 14px; font-size: 13px; max-width: 340px; }
+  .box h3 { margin: 0 0 6px 0; font-size: 13px; color: #9c9; }
+  .box ul { margin: 0; padding-left: 18px; }
+  .actions { margin-top: 10px; }
+  #log { font-size: 12px; color: #999; margin-top: 8px; white-space: pre-wrap; }
+  #hint { font-size: 13px; color: #ccc; margin-top: 6px; max-width: 700px; }
+  .mc-col { display: flex; flex-direction: column; }
+  .mc-scrub { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; font-size: 12px; }
+  .mc-scrub button { background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 4px;
+                     padding: 2px 6px; cursor: pointer; font-size: 11px; }
+  .mc-scrub input { width: 60px; background: #111; color: #ddd; border: 1px solid #444;
+                    border-radius: 4px; padding: 2px 4px; font-size: 12px; }
+  .mc-scrub .mc-total { color: #888; }
+</style>
+
+<h1>site calibration</h1>
+<p style="font-size:13px; color:#999; max-width:700px; margin-top:-8px;">
+  One-time, per-site setup that every feature can reuse (tracking, world-mode zones, anything else
+  that needs a real floor position). For drawing zones, use <code>reference_ui/zoning/zone_app.py</code> instead --
+  a separate tool, since zoning is per-feature and (in pixel mode) doesn't even need this step.
+</p>
+
+<div class="cams" id="cams"></div>
+
+<div class="mode">
+  <button id="mode-rect" class="active">calibrate (4 points, no numbers)</button>
+  <button id="mode-crosscheck">cross-check two cameras agree</button>
+  <button id="mode-align">align cameras (shared points)</button>
+  <button id="mode-line">align cameras (shared line)</button>
+  <button id="mode-gate">mark entry gate</button>
+  <button id="mode-bev">view BEV overlay (check alignment)</button>
+</div>
+
+<div id="hint"></div>
+
+<div id="rect-scrub" class="mc-scrub" style="margin-top:6px;">
+  <span style="color:#9c9; margin-right:4px;">frame:</span>
+  <button id="rs-m10">-10</button><button id="rs-m1">-1</button>
+  <input type="number" id="rs-input" min="0" value="0">
+  <span class="mc-total" id="rs-total">/ ?</span>
+  <button id="rs-golive" style="display:none">back to live</button>
+  <span id="rs-livetag" style="display:none;color:#c00;font-weight:bold"> HELD</span>
+  <button id="rs-p1">+1</button><button id="rs-p10">+10</button>
+  <button id="rs-go">go</button>
+  <span style="font-size:12px; color:#999; margin-left:8px;">scrub to a frame where the shape you're calibrating isn't occluded (by a person, furniture, etc.) -- doesn't affect already-placed points, the camera doesn't move</span>
+</div>
+
+<div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+
+<div class="actions">
+  <button id="btn-undo">undo last point</button>
+  <button id="btn-compute">compute + save calibration</button>
+</div>
+
+<div id="gate-actions" class="actions" style="display:none;">
+  <button id="btn-gate-reset">reset all gates</button>
+  &nbsp;&nbsp; <span id="gate-count" style="font-size:12px; color:#999;">0 gate(s) recorded</span>
+</div>
+
+<div id="bev-wrap" style="display:none;">
+  <div id="bev-cams" style="margin-bottom:6px;"></div>
+  <div class="mc-scrub" style="margin-bottom:6px;">
+    <span style="color:#9c9; margin-right:4px;">frame (all cams):</span>
+    <button id="bev-m10">-10</button><button id="bev-m1">-1</button>
+    <input type="number" id="bev-f-input" min="0" value="0" style="width:70px;">
+    <button id="bev-p1">+1</button><button id="bev-p10">+10</button>
+    <button id="bev-refresh">refresh</button>
+    &nbsp;&nbsp; <button id="bev-zoom-reset">reset zoom</button>
+    <span style="font-size:12px; color:#999; margin-left:8px;">scroll to zoom, drag to pan</span>
+  </div>
+  <div id="bev-coverage" style="font-size:13px; margin-bottom:8px;"></div>
+  <div id="bev-img-wrap" style="overflow:hidden; border:1px solid #444; background:#222; max-width:100%; height:650px; position:relative; cursor:grab;">
+    <img id="bev-img" style="position:absolute; left:0; top:0; transform-origin:0 0;">
+  </div>
+</div>
+
+<div id="multi-wrap" style="display:none">
+  <div id="mc-cc-actions" style="margin-bottom:8px;">
+    <button id="btn-cc-compare">compare all</button>
+    &nbsp;&nbsp; <button id="btn-cc-reset">reset points</button>
+    &nbsp;&nbsp; <span style="font-size:12px; color:#999;">click the point in as many cameras as you can see it in (2 minimum, not limited to 2)</span>
+  </div>
+  <div id="mc-align-actions" style="display:none; margin-bottom:8px;">
+    <button id="btn-align-record">record shared point</button>
+    &nbsp;&nbsp; <button id="btn-align-reset">reset recorded points</button>
+    &nbsp;&nbsp; <button id="btn-align-compute">align cameras now</button>
+    &nbsp;&nbsp; <span id="align-count" style="font-size:12px; color:#999;">0 shared point(s) recorded</span>
+  </div>
+  <div id="mc-line-actions" style="display:none; margin-bottom:8px;">
+    <button id="btn-line-finish">finish this line (bank it)</button>
+    &nbsp;&nbsp; <button id="btn-line-reset">reset (discard current line)</button>
+    &nbsp;&nbsp; <span id="line-count" style="font-size:12px; color:#999;">0 line(s) recorded</span>
+    <div id="line-diag" style="margin-top:6px; font-size:13px;"></div>
+  </div>
+  <div id="mc-canvases" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
+  <div id="mc-result" style="margin-top:10px; font-size:14px;"></div>
+</div>
+
+<div class="panel">
+  <div class="box" id="cheatsheet">
+    <h3>calibrate, then verify before trusting it</h3>
+    Pick a camera tab, click 4 points that trace a shape you're confident is a right angle in real
+    life (a floor tile, a rug, perpendicular wall/floor lines) -- ANY rectangle works, not just a
+    square: the true aspect ratio is inferred from the 4 points' own perspective geometry, no
+    typing, no numbers. The compute step will tell you whether that inference was confident or
+    fell back to assuming square -- if it's not confident, dragging the auto-placed 4th corner to
+    its true position (see the "calibrate" mode hint above) is the more reliable fix. Repeat per
+    camera, then "compute + save calibration" writes <code>site_calibration.json</code>.
+    <br><br>
+    The 4-point fit's reprojection error is always ~0 regardless of whether the right-angle
+    assumption actually holds -- that only confirms the math ran, not that it's correct. Two
+    independently-calibrated cameras can each look perfect on their own and still disagree by
+    metres about where the same real person is, because each one invented its own private floor
+    coordinate system. Two ways to deal with that:
+    <br><br>
+    <b>align cameras first</b> -- actually fixes it. For when no single real rectangle is visible in
+    every camera you want to fuse (common with wide baselines), so the calibrate step above can't
+    anchor them to a shared frame by itself. Click the same real point across whichever cameras
+    happen to see it, "record shared point", repeat for as many points/cameras as you like (any
+    point, any subset -- you don't need the same set of cameras every time). "align cameras now"
+    solves for the scale+rotation+translation that reconciles every camera's invented frame with a
+    shared one (chaining through a third camera if two never directly share a point), corrects and
+    re-saves the calibration. Needs >=2 shared points between any two cameras you want tied
+    together.
+    <br><br>
+    <b>cross-check</b> -- read-only, and only usable on cameras that are already aligned (two
+    freshly-calibrated cameras almost always "fail" a cross-check by construction, since nothing
+    tied their frames together yet -- that's not new information). Click the same real point in 2+
+    aligned cameras and compare, ideally with different points than the ones you used to align.
+    Units are "pt", an arbitrary made-up scale (1 pt = whatever real distance your calibration
+    rectangle's side happened to be) -- NOT real metres or cm, on purpose, since that was never
+    actually measured. A fraction of a pt apart means they still agree; a pt or more means
+    something's still wrong. Changes nothing.
+    <br><br>
+    <b>finding a shared point when the floor looks the same everywhere</b> -- both cross-check and
+    align let each camera's view scroll through its OWN video independently (cameras aren't
+    necessarily time-synced). If the floor tiling is too uniform/repetitive to tell one corner from
+    another, scrub each camera to a moment where a real person is standing in the shared area and
+    click their feet instead -- a specific, identifiable landmark the floor itself doesn't provide.
+    <br><br>
+    <b>align cameras (shared line)</b> -- an alternative to shared points, for when a real
+    straight edge (a wall/floor seam, a doorframe) is easier to identify precisely than one exact
+    point. Click as many points along it as you're confident in, per camera (2 minimum, no
+    maximum, doesn't need to match count across cameras) -- each click gets you live feedback:
+    does THIS camera's own homography still see those points as collinear (tests that camera in
+    isolation), and once 2+ cameras have points on the line, do they agree on its real length
+    (tests alignment, using the fact that a rigid real line has ONE length regardless of which
+    camera measures it). "finish this line" banks it; if the point counts matched across cameras,
+    they're fed into the exact same alignment fit "shared point" uses, just with more,
+    better-conditioned correspondences at once. No real-world measurement involved -- the unit
+    ("pt") is intentionally made up, not cm or metres, so there's nothing to mismeasure.
+    <br><br>
+    <b>mark entry gate</b> -- separate from calibration itself: click real entry/exit points (a
+    doorway, wherever people actually walk in from) in any calibrated camera's view. One click,
+    saved immediately (<code>gates.json</code>, next to the video footage by default -- see
+    <code>--gates-out</code>) -- no undo, no compute step, no multi-camera agreement needed (a
+    gate point only needs ONE camera's Hinv to
+    convert to world coordinates). Not required for tracking to work at all, but a tracker that
+    knows real entry locations can tell "a genuinely new person just walked in" apart from "an
+    existing person's position estimate drifted outside the association gate" -- the latter is far
+    more likely if the point in question is nowhere near any marked gate.
+    <br><br>
+    <b>view BEV overlay</b> -- read-only, checks alignment directly by SIGHT instead of trusting
+    diagnostics alone: every checked camera's frame gets rectified onto one shared floor-plane
+    canvas and averaged. Correct calibration+alignment means a real floor feature (a rug edge, a
+    tile seam) lands in the same spot from every camera and looks sharp; misalignment shows up as
+    visible ghosting/doubling. The same check "align cameras now" already runs automatically
+    (and reports here as "coverage check") -- this mode is for actually SEEING what a flagged
+    camera's mismatch looks like, and for isolating which camera it is by unchecking the rest.
+  </div>
+  <div class="box">
+    <h3>calibration points per camera</h3>
+    <ul id="calib-list"></ul>
+  </div>
+</div>
+
+<div id="log"></div>
+<div id="js-fallback" style="color:#f66; margin-top:10px;">
+  If the page looks static/unresponsive (no image, clicking does nothing), JavaScript failed to
+  run -- open the browser console (F12) for the actual error.
+</div>
+
+<script>
+document.getElementById("js-fallback").remove();   // only reached if the script parses+runs at all
+const cams = {{ cams|tojson }};
+let curCam = cams[0];
+let mode = "rect";  // "rect" (calibration) | "crosscheck" | "align" | "line" | "gate"
+const img = new Image();
+
+const HINTS = {
+  rect: "Click 3 points, in order around the shape (e.g. clockwise), that form a right " +
+        "angle in real life -- no numbers. The 4th corner is auto-placed (light blue) the " +
+        "moment you have 3; drag it to align with whatever you can see of that corner " +
+        "(continuing grout lines, a wall edge), or just click its true position directly " +
+        "if you can see it precisely. Useful when the 4th corner is out of frame, blocked, " +
+        "or otherwise unclickable, but 3 real corners are.",
+  crosscheck: "Both cameras must be calibrated first. Click the SAME real point in both " +
+              "views below (a tile corner, an object edge -- anything you can identify in " +
+              "both), then \"compare\". Read-only -- doesn't change anything.",
+  align: "Click the SAME real point in whichever camera views below can see it (>=2), then " +
+         "\"record shared point\". Repeat with different points/camera subsets, then " +
+         "\"align cameras now\" to actually fix any disagreement -- this DOES change and " +
+         "re-save the calibration.",
+  gate: "This camera must be calibrated first. Click a real entry/exit point -- a doorway, " +
+        "wherever people actually walk in from -- and it's recorded immediately (no undo " +
+        "needed, no compute step; one click = one gate). Switch camera tabs to mark gates " +
+        "visible in other views. Used by a tracker to tell \"a genuinely new person just " +
+        "walked in\" apart from \"an existing person's position estimate drifted\" -- an " +
+        "unmatched detection far from every marked gate is assumed to be the latter.",
+  bev: "Read-only -- changes nothing. Every checked camera's own frame, rectified onto ONE " +
+       "shared floor-plane canvas and averaged together. If calibration+alignment is correct, " +
+       "a real floor feature (a rug's edge, a tile seam) lands in the SAME spot from every " +
+       "camera and looks sharp; if it's off, it visibly doubles up or ghosts. Uncheck cameras " +
+       "to isolate which one is the problem. The coverage note above the image is the same " +
+       "check in numbers: a camera whose visible floor area is wildly smaller or larger than " +
+       "the others' is a bad ALIGNMENT SCALE (fix by re-aligning with shared points/lines " +
+       "spread across the whole room, not a rect-calibration problem).",
+  line: "Click points along a REAL STRAIGHT LINE (a wall/floor edge, a seam) -- as many as " +
+        "you can identify, in order, in whichever cameras see it (2 minimum per camera, no " +
+        "upper bound, doesn't need to be the same count in every camera). Each click is " +
+        "recorded immediately with live feedback below: does this camera's own homography " +
+        "still see it as straight, and do cameras that share it agree on its length. " +
+        "\"finish this line\" banks it -- if 2+ cameras recorded the SAME number of points, " +
+        "they're fed into alignment automatically (same math as \"shared point\", just more " +
+        "of it at once, better-conditioned than isolated points). No real-world measurement " +
+        "used or needed -- units are an arbitrary \"pt\", not cm or metres.",
+};
+
+function log(msg) {
+  const el = document.getElementById("log");
+  el.textContent = msg + "\n" + el.textContent;
+}
+
+function drawCamTabs() {
+  const el = document.getElementById("cams");
+  el.innerHTML = "";
+  cams.forEach(c => {
+    const b = document.createElement("button");
+    b.textContent = "cam " + c;
+    if (c === curCam) b.classList.add("active");
+    b.onclick = () => { curCam = c; rectPts = []; draggingHandle = false; loadFrame(); };
+    el.appendChild(b);
+  });
+}
+
+// per-camera frame index for the single-canvas rect/gate view -- null means
+// "use the server's cached startup frame" (no ?f= param); once the user
+// scrubs, this camera always requests that specific frame from then on.
+// Scrubbing does NOT clear rectPts: the camera is static, so previously
+// placed points are still valid pixel coordinates regardless of which frame
+// is currently displayed -- only visibility of the target shape changes.
+const rectFrameIdx = {};
+cams.forEach(c => { rectFrameIdx[c] = null; });
+
+function loadFrame() {
+  drawCamTabs();
+  mcLoadMeta();
+  const n = mcMeta[curCam] ? mcMeta[curCam].n_frames : null;
+  document.getElementById("rs-total").textContent = n ? `/ ${n - 1}` : "/ ?";
+  // live cameras: show whether we are frozen on a snapshot or following "now"
+  const meta = mcMeta[curCam] || {};
+  const isLive = !!meta.live, isHeld = !!meta.held;
+  document.getElementById("rs-golive").style.display = isLive ? "" : "none";
+  document.getElementById("rs-livetag").style.display = (isLive && isHeld) ? "" : "none";
+  document.getElementById("rs-golive").textContent = isHeld ? "back to live" : "(following live)";
+  document.getElementById("rs-input").value = rectFrameIdx[curCam] != null ? rectFrameIdx[curCam] : 0;
+  if (n) document.getElementById("rs-input").max = n - 1;
+  img.onload = () => {
+    const canvas = document.getElementById("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    // scale display down if wide, keep internal resolution native so pixel
+    // coordinates sent to the server are always true image pixels
+    const maxW = 1000;
+    if (img.naturalWidth > maxW) {
+      canvas.style.width = maxW + "px";
+      canvas.style.height = (img.naturalHeight * maxW / img.naturalWidth) + "px";
+    } else {
+      canvas.style.width = img.naturalWidth + "px";
+      canvas.style.height = img.naturalHeight + "px";
+    }
+    redrawRect();
+    if (mode === "gate") refreshGateMarkers();
+  };
+  img.onerror = () => log(`ERROR: could not load /frame/${curCam}.png -- check the terminal running the app for a traceback`);
+  const fParam = rectFrameIdx[curCam] != null ? `&f=${rectFrameIdx[curCam]}` : "";
+  img.src = "/frame/" + curCam + ".png?t=" + Date.now() + fParam;
+}
+
+function rectSeek(idx) {
+  const n = mcMeta[curCam] ? mcMeta[curCam].n_frames : null;
+  if (n) idx = Math.max(0, Math.min(n - 1, idx));
+  else idx = Math.max(0, idx);
+  rectFrameIdx[curCam] = idx;
+  loadFrame();
+}
+document.getElementById("rs-m10").onclick = () => rectSeek((rectFrameIdx[curCam] || 0) - 10);
+document.getElementById("rs-m1").onclick = () => rectSeek((rectFrameIdx[curCam] || 0) - 1);
+document.getElementById("rs-p1").onclick = () => rectSeek((rectFrameIdx[curCam] || 0) + 1);
+document.getElementById("rs-p10").onclick = () => rectSeek((rectFrameIdx[curCam] || 0) + 10);
+document.getElementById("rs-go").onclick = () => rectSeek(parseInt(document.getElementById("rs-input").value, 10) || 0);
+document.getElementById("rs-golive").onclick = async () => {
+  await fetch("/stream_live/" + curCam, {method: "POST"});
+  rectFrameIdx[curCam] = null;      // null = no ?f= param = follow the live edge
+  loadFrame();
+  log(`cam ${curCam}: following live again`);
+};
+document.getElementById("rs-input").addEventListener("keydown", (evt) => {
+  if (evt.key === "Enter") rectSeek(parseInt(evt.target.value, 10) || 0);
+});
+
+function canvasXY(evt) {
+  const canvas = document.getElementById("canvas");
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+  return [(evt.clientX - rect.left) * sx, (evt.clientY - rect.top) * sy];
+}
+
+// ---------------- "rect" mode: 3 real clicks + an auto-placed, draggable
+// 4th corner -- for when the true 4th corner isn't cleanly clickable (out
+// of frame, blocked, awkward angle) but 3 real corners are. The 4th is a
+// STARTING GUESS (parallelogram completion: corner4 = corner1 + corner3 -
+// corner2, since a parallelogram's diagonals share a midpoint) -- exact
+// only when the camera's view is close to front-on, an approximation
+// otherwise (a real rectangle does not project to an exact parallelogram
+// under general perspective) -- which is why it's draggable, not just
+// computed and trusted: line it up with whatever real cues are visible
+// (continuing grout lines, a wall edge) rather than accepting it blind.
+let rectPts = [];           // local mirror of this camera's server-side points
+let draggingHandle = false;
+let justFinishedDrag = false;
+
+function inferRectCorner3(p1, p2, p3) {
+  return [p1[0] + p3[0] - p2[0], p1[1] + p3[1] - p2[1]];
+}
+
+function redrawRect() {
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  if (rectPts.length >= 2) {
+    ctx.strokeStyle = "#f33"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    rectPts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    if (rectPts.length === 4) ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  rectPts.forEach(([x, y], i) => {
+    const isHandle = i === 3 && rectPts.length === 4;
+    ctx.fillStyle = isHandle ? "#5bc8ff" : "#f33";
+    ctx.beginPath(); ctx.arc(x, y, isHandle ? 7 : 5, 0, 7); ctx.fill();
+    if (isHandle) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.font = "16px sans-serif"; ctx.fillText(i + 1, x + 8, y - 8);
+  });
+}
+
+// gates are stored server-side as world coords (camera-agnostic), so unlike
+// rectPts there's no local pixel mirror to redraw from -- fetch this
+// camera's gates re-projected to pixel space and draw them. Needed because
+// redrawRect() (called on every frame reload: tab switch, scrub) repaints
+// over the one-off dots the click handler drew directly, so without this
+// they'd vanish from screen the moment you look away, even though they're
+// still saved in gates.json.
+function drawGates(points) {
+  const ctx = canvasEl.getContext("2d");
+  points.forEach(([gx, gy], i) => {
+    ctx.fillStyle = "#0f0";
+    ctx.beginPath(); ctx.arc(gx, gy, 6, 0, 7); ctx.fill();
+    ctx.font = "14px sans-serif"; ctx.fillText("gate " + (i + 1), gx + 8, gy - 8);
+  });
+}
+
+async function refreshGateMarkers() {
+  const r = await fetch(`/gates_pixels?cam=${curCam}`).then(r => r.json());
+  if (r.ok) drawGates(r.points);
+}
+
+function hitTestHandle(x, y) {
+  if (rectPts.length !== 4) return false;
+  const canvas = document.getElementById("canvas");
+  const rect = canvas.getBoundingClientRect();
+  const scale = canvas.width / rect.width;   // ~constant grab radius on screen, any resolution
+  const [hx, hy] = rectPts[3];
+  return Math.hypot(x - hx, y - hy) <= 12 * scale;
+}
+
+async function replace4thPoint(x, y) {
+  await fetch("/calib_rect_undo", {method: "POST", headers: {"Content-Type": "application/json"},
+                                   body: JSON.stringify({cam: curCam})});
+  const r = await fetch("/calib_rect_point", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cam: curCam, px: x, py: y})
+  }).then(r => r.json());
+  if (r.ok) { rectPts[3] = [x, y]; redrawRect(); refreshLists(); }
+  return r;
+}
+
+async function autoPlace4th() {
+  const p4 = inferRectCorner3(rectPts[0], rectPts[1], rectPts[2]);
+  const r = await fetch("/calib_rect_point", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cam: curCam, px: p4[0], py: p4[1]})
+  }).then(r => r.json());
+  if (r.ok) {
+    rectPts.push(p4);
+    redrawRect();
+    log(`cam ${curCam}: 4th corner auto-placed (light blue) -- drag it to align with the ` +
+        `real corner, or click its true position directly, then "compute + save calibration"`);
+    refreshLists();
+  }
+}
+
+const canvasEl = document.getElementById("canvas");
+
+canvasEl.addEventListener("mousedown", (evt) => {
+  if (mode !== "rect") return;
+  const [x, y] = canvasXY(evt);
+  if (hitTestHandle(x, y)) { draggingHandle = true; evt.preventDefault(); }
+});
+
+window.addEventListener("mousemove", (evt) => {
+  if (!draggingHandle) return;
+  rectPts[3] = canvasXY(evt);
+  redrawRect();
+});
+
+window.addEventListener("mouseup", async () => {
+  if (!draggingHandle) return;
+  draggingHandle = false;
+  justFinishedDrag = true;
+  const [x, y] = rectPts[3];
+  const r = await replace4thPoint(x, y);
+  if (r.ok) log(`cam ${curCam}: 4th corner moved to (${x.toFixed(0)},${y.toFixed(0)})`);
+});
+
+canvasEl.addEventListener("click", async (evt) => {
+  if (mode === "gate") {
+    const [gx, gy] = canvasXY(evt);
+    const r = await fetch("/mark_gate", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({cam: curCam, px: gx, py: gy})
+    }).then(r => r.json());
+    if (!r.ok) { alert(r.error); return; }
+    log(`cam ${curCam}: gate #${r.n} marked at pixel (${gx.toFixed(0)},${gy.toFixed(0)}) -> ` +
+        `world (${r.world[0]},${r.world[1]}) pt -- saved to ${r.saved}`);
+    document.getElementById("gate-count").textContent = `${r.n} gate(s) recorded`;
+    refreshGateMarkers();   // re-fetch + redraw ALL of this camera's gates, not just this one
+    return;
+  }
+  if (mode !== "rect") return;
+  if (justFinishedDrag) { justFinishedDrag = false; return; }   // mouseup already handled this
+  const [x, y] = canvasXY(evt);
+
+  if (rectPts.length === 4) {
+    // 4th point already placed (auto or a previous click/drag) -- a plain
+    // click elsewhere means "place it exactly here instead", same result
+    // as dragging the handle there
+    if (hitTestHandle(x, y)) return;
+    const r = await replace4thPoint(x, y);
+    if (!r.ok) { alert(r.error); return; }
+    log(`cam ${curCam}: 4th corner placed at (${x.toFixed(0)},${y.toFixed(0)})`);
+    return;
+  }
+
+  const r = await fetch("/calib_rect_point", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cam: curCam, px: x, py: y})
+  }).then(r => r.json());
+  if (!r.ok) { alert(r.error); return; }
+  rectPts.push([x, y]);
+  redrawRect();
+  log(`cam ${curCam}: point ${r.n}/3 real corner at (${x.toFixed(0)},${y.toFixed(0)})`);
+  refreshLists();
+  if (r.n === 3) autoPlace4th();
+});
+
+document.getElementById("mode-rect").onclick = () => { mode = "rect"; setMode(); };
+document.getElementById("mode-crosscheck").onclick = () => { mode = "crosscheck"; setMode(); };
+document.getElementById("mode-align").onclick = () => { mode = "align"; setMode(); };
+document.getElementById("mode-line").onclick = () => { mode = "line"; setMode(); };
+document.getElementById("mode-gate").onclick = () => { mode = "gate"; setMode(); };
+document.getElementById("mode-bev").onclick = () => { mode = "bev"; setMode(); };
+function setMode() {
+  document.getElementById("mode-rect").classList.toggle("active", mode === "rect");
+  document.getElementById("mode-crosscheck").classList.toggle("active", mode === "crosscheck");
+  document.getElementById("mode-align").classList.toggle("active", mode === "align");
+  document.getElementById("mode-line").classList.toggle("active", mode === "line");
+  document.getElementById("mode-gate").classList.toggle("active", mode === "gate");
+  document.getElementById("mode-bev").classList.toggle("active", mode === "bev");
+  const inMulti = mode === "crosscheck" || mode === "align" || mode === "line";
+  const inGate = mode === "gate";
+  const inBev = mode === "bev";
+  document.getElementById("canvas-wrap").style.display = (inMulti || inBev) ? "none" : "inline-block";
+  document.getElementById("rect-scrub").style.display = (inMulti || inBev) ? "none" : "flex";
+  document.getElementById("multi-wrap").style.display = inMulti ? "block" : "none";
+  document.getElementById("btn-undo").style.display = (inMulti || inGate || inBev) ? "none" : "inline-block";
+  document.getElementById("btn-compute").style.display = (inMulti || inGate || inBev) ? "none" : "inline-block";
+  document.getElementById("gate-actions").style.display = inGate ? "block" : "none";
+  document.getElementById("bev-wrap").style.display = inBev ? "block" : "none";
+  document.getElementById("mc-cc-actions").style.display = mode === "crosscheck" ? "block" : "none";
+  document.getElementById("mc-align-actions").style.display = mode === "align" ? "block" : "none";
+  document.getElementById("mc-line-actions").style.display = mode === "line" ? "block" : "none";
+  document.querySelectorAll(".mc-line-undo").forEach(b => { b.style.display = mode === "line" ? "inline-block" : "none"; });
+  document.getElementById("hint").textContent = HINTS[mode];
+  if (inBev) {
+    loadBev();
+  } else if (inMulti) {
+    loadMultiCam();
+  } else {
+    rectPts = []; draggingHandle = false;
+    loadFrame();
+  }
+  if (mode === "crosscheck") checkAlignedForCrossCheck();
+}
+
+async function checkAlignedForCrossCheck() {
+  const s = await fetch("/state").then(r => r.json());
+  const nAligned = Object.values(s.aligned).filter(Boolean).length;
+  if (nAligned < 2) {
+    document.getElementById("hint").textContent =
+      "No cameras aligned yet (0-1 so far) -- cross-check won't accept unaligned cameras. " +
+      "Switch to \"align cameras\" first. " + HINTS.crosscheck;
+    document.getElementById("hint").style.color = "#f66";
+  } else {
+    document.getElementById("hint").style.color = "#ccc";
+  }
+}
+
+// ---------------- shared multi-cam click UI: ANY N cameras, click the same
+// real point -- used by BOTH "cross-check" (read-only) and "align" (records +
+// corrects). One canvas + one image per camera in `cams`, each independently
+// clickable; a camera can be left unclicked if that real point isn't visible
+// in it. Built once, reused across mode switches so clicks aren't lost just
+// from flipping between crosscheck and align.
+//
+// Each camera also scrubs INDEPENDENTLY (cameras aren't necessarily
+// time-synced) -- needed because floor tiling is often too uniform/
+// repetitive to identify "the same real point" from a single static frame
+// per camera; scrub each camera to a moment where a person is visible and
+// click their feet instead.
+// "pt" is the arbitrary made-up unit the backend now uses (see
+// calibration_app.py's _fit_homography docstring) -- 1 pt = whatever real
+// distance your calibration rectangle's side happened to be, deliberately
+// not claimed as real cm/metres. This threshold means "about one
+// unit-square-side of disagreement", same real meaning as the old 100cm
+// threshold before that ×100 conversion was removed as fictional precision.
+const AGREEMENT_THRESHOLD_PT = 1.0;
+const mcImgs = {}, mcPts = {}, mcFrameIdx = {}, mcMeta = {};
+cams.forEach(c => { mcImgs[c] = new Image(); mcPts[c] = null; mcFrameIdx[c] = 0; });
+
+function mcBuildCanvases() {
+  const wrap = document.getElementById("mc-canvases");
+  if (wrap.dataset.built === "1") return;
+  wrap.innerHTML = "";
+  cams.forEach(c => {
+    const col = document.createElement("div");
+    col.className = "mc-col";
+    const label = document.createElement("div");
+    label.style.cssText = "font-size:12px; color:#9c9; margin-bottom:4px;";
+    label.textContent = "cam " + c;
+
+    const scrub = document.createElement("div");
+    scrub.className = "mc-scrub";
+    const mkBtn = (txt, delta) => {
+      const b = document.createElement("button");
+      b.textContent = txt;
+      b.onclick = () => mcSeek(c, mcFrameIdx[c] + delta);
+      return b;
+    };
+    const input = document.createElement("input");
+    input.type = "number"; input.min = 0; input.value = 0;
+    input.id = "mc-frame-input-" + c;
+    input.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") mcSeek(c, parseInt(input.value, 10) || 0);
+    });
+    const goBtn = document.createElement("button");
+    goBtn.textContent = "go";
+    goBtn.onclick = () => mcSeek(c, parseInt(input.value, 10) || 0);
+    const total = document.createElement("span");
+    total.className = "mc-total"; total.id = "mc-total-" + c;
+    total.textContent = "/ ?";
+
+    scrub.append(mkBtn("-10", -10), mkBtn("-1", -1), input, total, mkBtn("+1", 1), mkBtn("+10", 10), goBtn);
+
+    const lineUndoBtn = document.createElement("button");
+    lineUndoBtn.textContent = "undo last pt (this cam)";
+    lineUndoBtn.className = "mc-line-undo";
+    lineUndoBtn.style.cssText = "display:none; margin-top:4px;";
+    lineUndoBtn.onclick = () => lineUndo(c);
+
+    const canvas = document.createElement("canvas");
+    canvas.id = "mc-canvas-" + c;
+    canvas.style.border = "1px solid #444";
+    canvas.style.cursor = "crosshair";
+    canvas.addEventListener("click", (evt) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+      const x = (evt.clientX - rect.left) * sx, y = (evt.clientY - rect.top) * sy;
+      if (mode === "line") { lineAddPoint(c, x, y); return; }
+      mcPts[c] = [x, y];
+      mcRedraw(c);
+    });
+    col.append(label, scrub, canvas, lineUndoBtn);
+    wrap.appendChild(col);
+  });
+  wrap.dataset.built = "1";
+}
+
+async function mcLoadMeta() {
+  if (Object.keys(mcMeta).length) return;
+  const meta = await fetch("/video_meta").then(r => r.json());
+  Object.assign(mcMeta, meta);
+  cams.forEach(c => {
+    const n = mcMeta[c] ? mcMeta[c].n_frames : null;
+    const totalEl = document.getElementById("mc-total-" + c);
+    if (totalEl) totalEl.textContent = n ? `/ ${n - 1}` : "/ ?";
+    const inputEl = document.getElementById("mc-frame-input-" + c);
+    if (inputEl && n) inputEl.max = n - 1;
+  });
+}
+
+function mcSeek(c, idx) {
+  const n = mcMeta[c] ? mcMeta[c].n_frames : null;
+  if (n) idx = Math.max(0, Math.min(n - 1, idx));
+  else idx = Math.max(0, idx);
+  mcFrameIdx[c] = idx;
+  const inputEl = document.getElementById("mc-frame-input-" + c);
+  if (inputEl) inputEl.value = idx;
+  mcPts[c] = null;   // new frame -> any previously-clicked point is stale
+  mcImgs[c].onload = () => {
+    const canvas = document.getElementById("mc-canvas-" + c);
+    canvas.width = mcImgs[c].naturalWidth; canvas.height = mcImgs[c].naturalHeight;
+    mcRedraw(c);
+  };
+  mcImgs[c].onerror = () => log(`ERROR: could not load frame ${idx} for cam ${c}`);
+  mcImgs[c].src = `/frame/${c}.png?f=${idx}&t=${Date.now()}`;
+}
+
+function loadMultiCam() {
+  mcBuildCanvases();
+  mcLoadMeta();
+  if (mcImgs[cams[0]].dataset && mcImgs[cams[0]].dataset.loaded === "1") return;
+  cams.forEach(c => {
+    mcImgs[c].onload = () => {
+      const canvas = document.getElementById("mc-canvas-" + c);
+      canvas.width = mcImgs[c].naturalWidth; canvas.height = mcImgs[c].naturalHeight;
+      mcImgs[c].dataset.loaded = "1";
+      mcRedraw(c);
+    };
+    mcImgs[c].src = "/frame/" + c + ".png?t=" + Date.now();
+  });
+}
+
+function mcRedraw(c) {
+  const canvas = document.getElementById("mc-canvas-" + c);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(mcImgs[c], 0, 0);
+  if (mcPts[c]) {
+    ctx.fillStyle = "#0f0";
+    ctx.beginPath(); ctx.arc(mcPts[c][0], mcPts[c][1], 6, 0, 7); ctx.fill();
+  }
+  const line = mcLinePts[c] || [];
+  if (line.length) {
+    ctx.strokeStyle = "#ff0"; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    line.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    ctx.stroke();
+    line.forEach(([x, y], i) => {
+      ctx.fillStyle = "#ff0";
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill();
+      ctx.font = "13px sans-serif"; ctx.fillText(i + 1, x + 7, y - 7);
+    });
+  }
+}
+
+function mcClearPoints() {
+  cams.forEach(c => { mcPts[c] = null; mcRedraw(c); });
+}
+
+function mcCollectPoints() {
+  const points = {};
+  cams.forEach(c => { if (mcPts[c]) points[c] = mcPts[c]; });
+  return points;
+}
+
+// ---------------- "line" mode: accumulate N points per camera (not just 1),
+// each click immediately posted and immediately fed back live diagnostics --
+// collinearity (does THIS camera's own homography respect a real straight
+// line) and cross-camera length agreement (does every camera that has
+// points on this line agree on its real length, after alignment).
+const mcLinePts = {};
+cams.forEach(c => { mcLinePts[c] = []; });
+
+function renderLineDiag(diag) {
+  const el = document.getElementById("line-diag");
+  const rows = Object.entries(diag.per_camera || {}).map(([c, info]) => {
+    const coll = info.collinearity_max_dev_pt != null
+      ? `, collinearity max dev ${info.collinearity_max_dev_pt} pt` : "";
+    return `cam ${c}: ${info.n_points} pt(s), length ${info.path_length_pt} pt${coll}`;
+  });
+  let html = rows.join("<br>");
+  if (diag.agreement) {
+    const bad = diag.agreement.spread_frac != null && diag.agreement.spread_frac > 0.1;
+    html += `<br><b style="color:${bad ? '#f66' : '#6f6'}">cross-camera length agreement: ` +
+      `mean ${diag.agreement.mean_pt} pt, spread ${diag.agreement.spread_pt} pt` +
+      (diag.agreement.spread_frac != null ? ` (${(diag.agreement.spread_frac * 100).toFixed(1)}%)` : "") +
+      (bad ? " -- DISAGREE, something's off" : " -- consistent") + "</b>";
+  }
+  el.innerHTML = html;
+}
+
+async function lineAddPoint(cam, x, y) {
+  const r = await fetch("/line_point_add", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cam, px: x, py: y})
+  }).then(r => r.json());
+  if (!r.ok) { alert(r.error); return; }
+  mcLinePts[cam].push([x, y]);
+  mcRedraw(cam);
+  renderLineDiag(r);
+  log(`cam ${cam}: line point ${r.counts[cam]} at (${x.toFixed(0)},${y.toFixed(0)})`);
+}
+
+async function lineUndo(cam) {
+  const r = await fetch("/line_undo", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({cam})
+  }).then(r => r.json());
+  if (!r.ok) { alert(r.error); return; }
+  mcLinePts[cam].pop();
+  mcRedraw(cam);
+  renderLineDiag(r);
+}
+
+document.getElementById("btn-line-reset").onclick = async () => {
+  await fetch("/line_reset", {method: "POST"});
+  cams.forEach(c => { mcLinePts[c] = []; mcRedraw(c); });
+  document.getElementById("line-diag").innerHTML = "";
+};
+
+document.getElementById("btn-line-finish").onclick = async () => {
+  const r = await fetch("/line_finish", {method: "POST"}).then(r => r.json());
+  if (!r.ok) { alert(r.error); return; }
+  cams.forEach(c => { mcLinePts[c] = []; mcRedraw(c); });
+  const note = r.fed_to_alignment
+    ? `fed ${r.n_correspondence_points} correspondence point(s) into alignment`
+    : "NOT fed into alignment -- cameras had different point counts on this line " +
+      "(still banked for the record, and each camera's own collinearity check above still applies)";
+  document.getElementById("line-diag").innerHTML =
+    `<b>line #${r.n_lines} banked</b> -- ${note}`;
+  log(`line #${r.n_lines} finished: ${JSON.stringify(r.counts)}, ${note}`);
+  document.getElementById("line-count").textContent = `${r.n_lines} line(s) recorded`;
+};
+
+function renderPairs(pairs, thresholdPt) {
+  const lines = pairs.map(p => {
+    const ok = p.distance_pt < thresholdPt;
+    return `cam ${p.cam_a} vs cam ${p.cam_b}: ${p.distance_pt} pt` +
+           (ok ? " -- consistent" : " -- DISAGREE");
+  });
+  const anyBad = pairs.some(p => p.distance_pt >= thresholdPt);
+  return {html: lines.join("<br>"), anyBad};
+}
+
+document.getElementById("btn-cc-reset").onclick = () => {
+  mcClearPoints();
+  document.getElementById("mc-result").textContent = "";
+};
+
+document.getElementById("btn-cc-compare").onclick = async () => {
+  const points = mcCollectPoints();
+  if (Object.keys(points).length < 2) { alert("click the point in at least 2 camera views"); return; }
+  const r = await fetch("/cross_check", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({points})
+  }).then(r => r.json());
+  const el = document.getElementById("mc-result");
+  if (!r.ok) { el.style.color = "#f66"; el.textContent = r.error; return; }
+  const {html, anyBad} = renderPairs(r.pairs, AGREEMENT_THRESHOLD_PT);
+  el.style.color = anyBad ? "#f66" : "#6f6";
+  el.innerHTML = html + (anyBad ? " -- recalibrate using the same real point in both, or use "
+                                  + "\"align cameras\" to fix it directly" : "");
+};
+
+document.getElementById("btn-align-record").onclick = async () => {
+  const points = mcCollectPoints();
+  if (Object.keys(points).length < 2) { alert("click the point in at least 2 camera views"); return; }
+  const r = await fetch("/align_point_add", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({points})
+  }).then(r => r.json());
+  const el = document.getElementById("mc-result");
+  if (!r.ok) { el.style.color = "#f66"; el.textContent = r.error; return; }
+  const {html} = renderPairs(r.pairs, AGREEMENT_THRESHOLD_PT);
+  el.style.color = "#ccc";
+  el.innerHTML = `recorded as shared point #${r.n} (pre-alignment):<br>` + html;
+  document.getElementById("align-count").textContent = `${r.n} shared point(s) recorded`;
+  mcClearPoints();
+};
+
+document.getElementById("btn-align-reset").onclick = async () => {
+  const r = await fetch("/align_points_reset", {method: "POST"}).then(r => r.json());
+  document.getElementById("align-count").textContent = `${r.n} shared point(s) recorded`;
+  document.getElementById("mc-result").textContent = "";
+};
+
+document.getElementById("btn-align-compute").onclick = async () => {
+  const r = await fetch("/align_compute", {method: "POST"}).then(r => r.json());
+  const el = document.getElementById("mc-result");
+  if (!r.ok) { el.style.color = "#f66"; el.textContent = r.error; return; }
+  const lines = Object.entries(r.results).map(([c, info]) => {
+    if (info.reference) return `cam ${c}: reference (unchanged) -- its OWN calibration accuracy ` +
+                                `was never independently verified, everything else was just fit ` +
+                                `to agree with it`;
+    if (!info.aligned) return `cam ${c}: NOT aligned -- ${info.error}`;
+    const orderNote = info.order_reversed
+      ? ` <b style="color:#fa4">(point order was auto-reversed -- this camera's shared-line ` +
+        `points were likely clicked in the opposite real-world direction from cam ${info.via}'s)</b>`
+      : "";
+    return `cam ${c}: aligned to cam ${info.via} using ${info.n_points} shared point(s)${orderNote}`;
+  });
+  el.style.color = "#6f6";
+  let html = `<b>aligned -> ${r.saved}</b><br>` + lines.join("<br>");
+  if (r.residual_checks && r.residual_checks.length) {
+    html += "<br><br>residual distances on all recorded points, AFTER alignment:<br>";
+    html += r.residual_checks.map(rc => rc.pairs.map(p =>
+      `cam ${p.cam_a} vs cam ${p.cam_b}: ${p.distance_pt} pt`).join(", ")).join("<br>");
+  }
+  if (r.coverage_check) {
+    const cc = r.coverage_check;
+    const bad = cc.flagged && cc.flagged.length;
+    html += `<br><br><b style="color:${bad ? '#f88' : '#8f8'}">coverage check: ${cc.note}</b>` +
+      (bad ? ` -- see "view BEV overlay" mode to look at it directly` : "");
+  }
+  el.innerHTML = html;
+  log(`aligned cameras, reference=${r.reference} -> ${r.saved}`);
+  refreshLists();
+};
+
+document.getElementById("btn-undo").onclick = async () => {
+  await fetch("/calib_rect_undo", {method: "POST", headers: {"Content-Type": "application/json"},
+                                   body: JSON.stringify({cam: curCam})});
+  rectPts.pop();
+  redrawRect();
+  refreshLists();
+};
+
+document.getElementById("btn-compute").onclick = async () => {
+  const r = await fetch("/calib_rect_compute", {method: "POST"}).then(r => r.json());
+  Object.entries(r.results).forEach(([c, info]) => {
+    if (info.error) { log(`cam ${c}: ERROR -- ${info.error}`); return; }
+    if (info.aspect_source && info.aspect_source.startsWith("fallback")) {
+      log(`cam ${c}: aspect ratio NOT inferred (assumed square, 1:1) -- ${info.aspect_source}`);
+    } else if (info.aspect_source) {
+      const warn = info.aspect_confident === false;
+      log(`cam ${c}: inferred aspect ratio ${info.inferred_aspect}` +
+          (warn ? ` -- LOW CONFIDENCE (stability std ${info.aspect_stability_std}), ` +
+                  `consider dragging the 4th corner to its true position instead of trusting this`
+               : ` (stability std ${info.aspect_stability_std}, confident)`));
+    }
+  });
+  if (r.saved) log("saved -> " + r.saved);
+  refreshLists();
+};
+
+document.getElementById("btn-gate-reset").onclick = async () => {
+  const r = await fetch("/gates_reset", {method: "POST"}).then(r => r.json());
+  document.getElementById("gate-count").textContent = `${r.n} gate(s) recorded`;
+  log("all gates cleared");
+  loadFrame();   // clear the green markers drawn on the current canvas
+};
+
+// ---------------- BEV overlay mode: read-only, every checked camera's own
+// frame rectified onto ONE shared floor-plane canvas and averaged -- a
+// direct visual version of /coverage_check's numbers (see HINTS.bev).
+let bevFrameIdx = 0;
+function bevBuildCheckboxes() {
+  const wrap = document.getElementById("bev-cams");
+  if (wrap.dataset.built === "1") return;
+  cams.forEach(c => {
+    const label = document.createElement("label");
+    label.style.cssText = "margin-right:12px; font-size:13px;";
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = true; cb.id = "bev-cb-" + c;
+    cb.onchange = refreshBev;
+    label.appendChild(cb);
+    label.append(" cam " + c);
+    wrap.appendChild(label);
+  });
+  wrap.dataset.built = "1";
+}
+
+function bevCheckedCams() {
+  return cams.filter(c => {
+    const cb = document.getElementById("bev-cb-" + c);
+    return cb ? cb.checked : true;
+  });
+}
+
+async function refreshBev() {
+  const checked = bevCheckedCams();
+  const img = document.getElementById("bev-img");
+  if (!checked.length) { img.removeAttribute("src"); return; }
+  img.src = `/bev_overlay.png?cams=${checked.join(",")}&f=${bevFrameIdx}&t=${Date.now()}`;
+  const cc = await fetch("/coverage_check").then(r => r.json());
+  const el = document.getElementById("bev-coverage");
+  if (cc.flagged && cc.flagged.length) {
+    el.style.color = "#f66";
+    el.innerHTML = `<b>${cc.note}</b><br>areas (pt&sup2;): ` +
+      Object.entries(cc.areas_pt2).map(([c, a]) => `cam ${c}=${a}`).join(", ");
+  } else {
+    el.style.color = "#6f6";
+    el.textContent = cc.note || "";
+  }
+}
+
+function loadBev() {
+  bevBuildCheckboxes();
+  document.getElementById("bev-f-input").value = bevFrameIdx;
+  refreshBev();
+}
+
+function bevSeek(idx) {
+  bevFrameIdx = Math.max(0, idx);
+  document.getElementById("bev-f-input").value = bevFrameIdx;
+  refreshBev();
+}
+document.getElementById("bev-m10").onclick = () => bevSeek(bevFrameIdx - 10);
+document.getElementById("bev-m1").onclick = () => bevSeek(bevFrameIdx - 1);
+document.getElementById("bev-p1").onclick = () => bevSeek(bevFrameIdx + 1);
+document.getElementById("bev-p10").onclick = () => bevSeek(bevFrameIdx + 10);
+document.getElementById("bev-refresh").onclick = () => bevSeek(parseInt(document.getElementById("bev-f-input").value, 10) || 0);
+document.getElementById("bev-f-input").addEventListener("keydown", (evt) => {
+  if (evt.key === "Enter") bevSeek(parseInt(evt.target.value, 10) || 0);
+});
+
+// ---------------- BEV image pan/zoom -- scroll-wheel zoom (centred on the
+// cursor, not the image corner) + click-drag pan, entirely client-side
+// (CSS transform on the already-rendered <img>, no extra network requests).
+// Deliberately NOT the browser's native page zoom (Ctrl+scroll) -- that
+// zooms the whole page/layout, not just this one image, and gives no pan
+// control. Zoom/pan state persists across frame-scrub refreshes (only
+// "reset zoom" or a fresh mode entry resets it) so you can scrub while
+// staying zoomed in on one spot.
+let bevZoom = 1, bevPanX = 0, bevPanY = 0, bevDragging = false, bevDragStart = null;
+const bevImgWrap = document.getElementById("bev-img-wrap");
+const bevImgEl = document.getElementById("bev-img");
+
+function bevApplyTransform() {
+  bevImgEl.style.transform = `translate(${bevPanX}px, ${bevPanY}px) scale(${bevZoom})`;
+}
+
+function bevFitToWrap() {
+  const rect = bevImgWrap.getBoundingClientRect();
+  if (!bevImgEl.naturalWidth) return;
+  bevZoom = Math.min(rect.width / bevImgEl.naturalWidth, rect.height / bevImgEl.naturalHeight, 1);
+  bevPanX = (rect.width - bevImgEl.naturalWidth * bevZoom) / 2;
+  bevPanY = (rect.height - bevImgEl.naturalHeight * bevZoom) / 2;
+  bevApplyTransform();
+}
+
+bevImgWrap.addEventListener("wheel", (evt) => {
+  evt.preventDefault();
+  const rect = bevImgWrap.getBoundingClientRect();
+  const mx = evt.clientX - rect.left, my = evt.clientY - rect.top;
+  const factor = evt.deltaY < 0 ? 1.2 : 1 / 1.2;
+  const newZoom = Math.min(30, Math.max(0.2, bevZoom * factor));
+  bevPanX = mx - (mx - bevPanX) * (newZoom / bevZoom);
+  bevPanY = my - (my - bevPanY) * (newZoom / bevZoom);
+  bevZoom = newZoom;
+  bevApplyTransform();
+}, {passive: false});
+
+bevImgWrap.addEventListener("mousedown", (evt) => {
+  bevDragging = true; bevDragStart = {x: evt.clientX - bevPanX, y: evt.clientY - bevPanY};
+  bevImgWrap.style.cursor = "grabbing";
+});
+window.addEventListener("mousemove", (evt) => {
+  if (!bevDragging) return;
+  bevPanX = evt.clientX - bevDragStart.x; bevPanY = evt.clientY - bevDragStart.y;
+  bevApplyTransform();
+});
+window.addEventListener("mouseup", () => { bevDragging = false; bevImgWrap.style.cursor = "grab"; });
+
+document.getElementById("bev-zoom-reset").onclick = bevFitToWrap;
+let bevFirstLoad = true;
+bevImgEl.addEventListener("load", () => { if (bevFirstLoad) { bevFitToWrap(); bevFirstLoad = false; } });
+
+async function refreshLists() {
+  const s = await fetch("/state").then(r => r.json());
+  const cl = document.getElementById("calib-list");
+  cl.innerHTML = "";
+  Object.keys(s.rect_points).forEach(c => {
+    const li = document.createElement("li");
+    let status = "";
+    if (s.cal_done.includes(c)) status = s.aligned[c] ? "  [calibrated, aligned]" : "  [calibrated, NOT aligned]";
+    li.textContent = `cam ${c}: ${s.rect_points[c]}/4 point(s)` + status;
+    cl.appendChild(li);
+  });
+  document.getElementById("align-count").textContent = `${s.n_align_points} shared point(s) recorded`;
+  document.getElementById("gate-count").textContent = `${s.n_gates} gate(s) recorded`;
+  document.getElementById("line-count").textContent = `${s.n_lines} line(s) recorded`;
+  if (mode === "crosscheck") checkAlignedForCrossCheck();
+}
+
+document.getElementById("hint").textContent = HINTS[mode];
+loadFrame();
+refreshLists();
+</script>

@@ -1,0 +1,3 @@
+# Keep line endings identical on Windows and on the Ubuntu CI runner, so that
+# `prettier --check` in `npm run lint` gives the same answer everywhere.
+* text=auto eol=lf

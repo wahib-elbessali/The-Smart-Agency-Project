@@ -1,0 +1,479 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Everything visual resolves to a name here. Screens use `bg-panel` and
+   `text-ink-2`, never `bg-[#141210]` — so a palette change is this block and
+   nothing else, and eight screens can't drift into eight different greys.
+
+   DARK IS THE DEFAULT, not the only option. This is a wall-mounted security
+   dashboard glanced at to answer "is anything wrong right now?". A light theme
+   exists too, as a block of overrides further down. No component branches on
+   the theme, and none should start.
+
+   RESTRAINED (2026-10-10). Neutral graphite, one solid blue, no gradients, no
+   glows, no decorative background. An earlier pass the same day went the
+   other way - blue-to-violet gradients, glowing chips, an aurora, a dot grid -
+   and the verdict was that it looked machine-made. That look IS the default
+   output of every generated dashboard, which is exactly why it reads that
+   way. What reads as professional is restraint: colour only where it carries
+   meaning (the selection, a status, a chart series), and surfaces that are
+   separated by a hairline rather than by light.
+
+   Opaque surfaces stay from that pass for a different reason: Vision UI's
+   translucent cards with a 120px backdrop blur were expensive enough to stall
+   the renderer.
+
+   The four chart-series colours are unchanged: they were validated for
+   colour-blind separation on dark and light and still pass on these greys.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Surfaces, darkest to lightest. A faint blue cast (palette sheet,
+     2026-10-10) - enough to tie the greys to the blue accent, not enough to
+     read as a coloured theme. */
+  --color-canvas: #090b0f;
+  --color-panel: #0f1217;
+  --color-panel-2: #161a21;
+  --color-line: #222730;
+  --color-line-strong: #39404c;
+
+  /* The border of an input, select or other control. Separate from `line`
+     because a field's edge is how you find it: WCAG 1.4.11 wants 3:1 for it
+     against its surroundings, which a divider-grey does not reach. Measured
+     3.75:1 on panel, 3.48:1 on panel-2. */
+  --color-line-control: #667080;
+
+  /* The outline every panel carries. Fainter than `line`: a card edge should
+     be quieter than a divider inside the card. */
+  --color-edge: rgb(255 255 255 / 0.07);
+
+  /* Text, most to least prominent. Off-white rather than pure white, which
+     vibrates on near-black. ink-3 is the lightest muted step that still clears
+     4.5:1 on panel-2. */
+  --color-ink: #eceef2;
+  --color-ink-2: #9ea4b0;
+  --color-ink-3: #7f8694;
+
+  /* One accent, solid, for interactive and selected states only. White text
+     on it clears 4.5:1, which is why labels on it use `on-accent` and not
+     the off-white `ink`. `accent-ink` is the step for accent-coloured TEXT
+     and icons on the dark ground. */
+  --color-accent: #2f6feb;
+  --color-accent-ink: #7aa7ff;
+  --color-on-accent: #ffffff;
+
+  /* The categorical chart ramp - series identity, nothing else. Assign in
+     order, never cycled; a fifth series folds into "Other".
+
+     Replaced 2026-10-10 (palette sheet). The previous set had an amber and a
+     brick red that read as `warn` and `danger` - a chart series looked like
+     a status. This set is teal-green, violet, steel blue, deep teal: nearest
+     to any status colour is now dE 21 (the old brick was dE 7 from danger),
+     for a small loss in worst-case colour-blind separation (dE 26 -> 23).
+     data-1 and data-3 are only 3:1 on white, and data-2 and data-4 about
+     3.3:1 on the dark panel: fine for marks, but keep direct labels on charts
+     rather than relying on colour alone. Checked as a set; do not nudge one
+     in isolation. */
+  --color-data-1: #12a588;
+  --color-data-2: #655aaf;
+  --color-data-3: #8394c3;
+  --color-data-4: #29707a;
+
+  /* The single highlighted mark - one lit bar against muted peers. */
+  --color-data-lit: #2f6feb;
+
+  /* Status. Desaturated a step from neon: these mark real conditions, and a
+     dashboard where "ok" glows as brightly as "danger" has no hierarchy.
+
+     `info` is deliberately NEUTRAL (the ink-2 grey). A blue or cyan info
+     competed with the accent, and blue has one meaning here: interactive or
+     selected. Informational badges therefore look close to neutral ones;
+     that is the trade, made on purpose. */
+  --color-ok: #3fb950;
+  --color-warn: #e3a008;
+  --color-danger: #f0524a;
+  --color-info: #9ea4b0;
+
+  --radius-panel: 0.75rem;
+  --radius-control: 0.5rem;
+  --radius-pill: 999px;
+
+  /* Shadows are contact shadows only. On near-black a long soft shadow is
+     invisible anyway; what separates a card here is its edge. */
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-raised: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.3);
+  /* Kept as a name so nothing breaks, but no longer a glow. */
+  --shadow-glow: 0 1px 2px rgb(0 0 0 / 0.3);
+
+  --shadow-control-inset: inset 0 1px 1px rgb(0 0 0 / 0.25);
+
+  /* The surface "gradients" are flat now. Kept as tokens because the
+     utilities below are built on them; `none` means the panel colour alone. */
+  --gradient-panel: none;
+  --gradient-panel-2: none;
+  --gradient-lit: none;
+
+  /* Solid fills under the old gradient names, so no screen has to change to
+     lose the gradient. */
+  --gradient-accent: linear-gradient(#2f6feb, #2f6feb);
+  --gradient-ok: linear-gradient(#238636, #238636);
+  --gradient-danger: linear-gradient(#da3633, #da3633);
+  --gradient-violet: linear-gradient(#6e40c9, #6e40c9);
+
+  /* Type, three faces with three jobs (2026-10-10):
+       sans     IBM Plex Sans - everything people read AND the titles. Page
+                and card titles, sidebar labels and stat numbers are the
+                same face at semibold (600): hierarchy comes from size and
+                weight, not from a second display face. Space Grotesk did
+                that job briefly and was dropped - one family reads calmer.
+       mono     IBM Plex Mono - timestamps, IDs, ticket numbers, camera
+                names: the record-keeping voice of CCTV overlays and access
+                logs, and digits that line up down a column. Same family as
+                the sans, so the data areas read as one system.
+       display  Oxanium - the SmartAgency wordmark only.
+     All bundled (see main.tsx), so the fallbacks only matter for the instant
+     before the font file is parsed. */
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --font-display: 'Oxanium Variable', 'IBM Plex Sans Variable', ui-sans-serif, sans-serif;
+
+  --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Short and small. A page transition that can be watched is too long. */
+  --animate-fade-rise: fade-rise 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  /* The sign-in mark's status light (Logo `pulse`). Slow on purpose: a
+     heartbeat, not an alert. The only decorative looping animation in the
+     app (the skeleton shimmer loops too, but only while data is loading). */
+  --animate-beacon: beacon 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Utilities built on the tokens above.
+
+   These are utilities rather than component classes so they compose with
+   variants the same way the rest of Tailwind does.
+--------------------------------------------------------------------------- */
+
+/* The top-edge highlight. Layered as a background IMAGE so it sits over
+   whatever fill the element already has, and any panel keeps its own colour. */
+@utility surface-lit {
+  background-image: var(--gradient-lit);
+}
+
+/* The card. Kept under its old name so no screen had to change: everything
+   that asked for glass now gets the opaque panel with a lit hairline edge.
+   The border is real (not a box-shadow ring) so it never fights the shadow
+   utilities a card also carries. */
+@utility surface-glass {
+  background-color: var(--color-panel);
+  background-image: var(--gradient-panel);
+  border: 1px solid var(--color-edge);
+}
+
+@utility surface-glass-2 {
+  background-color: var(--color-panel-2);
+  background-image: var(--gradient-panel-2);
+}
+
+@utility bg-accent-gradient {
+  background-image: var(--gradient-accent);
+}
+
+/* A scroll container that still scrolls but draws no bar - for the rail,
+   where a scrollbar beside a column of round chips reads as a rendering bug. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Cursor-tracked edge glow.
+
+   Lights the BORDER of a surface with a soft pool of accent that follows the
+   pointer. The position and intensity arrive as custom properties from
+   useCursorGlow - this rule only draws them. Two masks composited with
+   `exclude` leave only a 1px ring, so the gradient never washes over the
+   content sitting on the card.
+--------------------------------------------------------------------------- */
+@utility glow-edge {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(
+      260px circle at var(--glow-x, 50%) var(--glow-y, 50%),
+      var(--color-line-strong),
+      transparent 70%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: var(--glow-strength, 0);
+    transition: opacity 0.2s var(--ease-soft);
+    pointer-events: none;
+  }
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A ring leaves the dot and fades. It is invisible again by 70% and rests
+   there, so each beat is followed by a pause rather than a constant throb. */
+@keyframes beacon {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   LIGHT THEME
+
+   The tokens above are the DARK values and remain the defaults. This block
+   re-points the same names for light, keyed on an explicit data-theme that the
+   provider always stamps (it resolves "system" in script), so there is one
+   copy of these values and nothing to drift.
+
+   It sits in `base` rather than in `@theme` because Tailwind emits @theme into
+   the `theme` cascade layer and `base` comes after it - these win on layer
+   order rather than on specificity.
+
+   Text pairs were checked for contrast, not picked by eye.
+--------------------------------------------------------------------------- */
+@layer base {
+  :root[data-theme='light'] {
+    --color-canvas: #f5f7fa;
+    --color-panel: #ffffff;
+    --color-panel-2: #f0f2f6;
+    --color-line: #e2e6ec;
+    --color-line-strong: #cbd1da;
+    --color-line-control: #7b8493;
+    --color-edge: rgb(16 24 40 / 0.09);
+
+    --color-ink: #0f1728;
+    --color-ink-2: #455468;
+    --color-ink-3: #5d6a7d;
+
+    --color-accent: #2f6feb;
+    --color-accent-ink: #1f5ad6;
+    --color-on-accent: #ffffff;
+
+    /* Status re-stepped, not re-hued: the dark values are tuned for a black
+       ground and several are too pale to read on white. */
+    --color-ok: #1a7f37;
+    /* warn darkened a step: the old #9a6700 measured 4.3:1 on panel-2,
+       this is 4.9:1. */
+    --color-warn: #8f5f00;
+    --color-danger: #cf222e;
+    --color-info: #455468;
+
+    --shadow-panel: 0 1px 2px rgb(16 24 40 / 0.05);
+    --shadow-raised: 0 8px 20px -6px rgb(16 24 40 / 0.12), 0 1px 2px rgb(16 24 40 / 0.05);
+    --shadow-glow: 0 1px 2px rgb(16 24 40 / 0.08);
+    --shadow-control-inset: inset 0 1px 1px rgb(16 24 40 / 0.04);
+
+    /* Avatar discs invert: a light tint carrying dark initials. */
+    --avatar-bg-l: 0.91;
+    --avatar-fg-l: 0.4;
+  }
+}
+
+@layer base {
+  /* Avatar disc lightness, as OKLCH L values rather than colours. The disc's
+     HUE is derived per person at runtime, so the theme can only supply how
+     light the fill and the initials should be. */
+  :root {
+    --avatar-bg-l: 0.32;
+    --avatar-fg-l: 0.86;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  /* Browser chrome - form controls, scrollbars, the caret - in the matching
+     mode. Without it a light page keeps dark dropdowns. */
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  /* A plain canvas. No glow, no texture: decoration behind the data is the
+     most recognisable trait of a generated dashboard, and it competes with
+     the one thing on screen that matters. */
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: var(--font-sans);
+  }
+
+  /* Headings are the sans at semibold, and they tighten as they grow -
+     uniform tracking across sizes looks machine-assembled. The weight here
+     is the default; a heading that sets its own weight class keeps it. */
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+  }
+
+  h1 {
+    letter-spacing: -0.025em;
+  }
+
+  h2,
+  h3 {
+    letter-spacing: -0.012em;
+  }
+
+  /* Small uppercase labels need the opposite treatment or they set solid. */
+  .tracked {
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Readings sit in tables and stat tiles and must not jitter as they update. */
+  code,
+  kbd,
+  samp,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Timestamps and codes in the mono face. <time> is how every timestamp in
+     the app is rendered (ui/Time.tsx, the top-bar clock), so this one rule
+     covers them all. Slightly smaller, because Plex Mono runs wide next to
+     Plex Sans at the same nominal size. */
+  code,
+  kbd,
+  samp,
+  time {
+    font-family: var(--font-mono);
+    font-size: 0.94em;
+  }
+
+  select,
+  input[type='date'] {
+    color-scheme: dark;
+  }
+
+  html[data-theme='light'] select,
+  html[data-theme='light'] input[type='date'] {
+    color-scheme: light;
+  }
+
+  /* One focus treatment everywhere, always visible, held two pixels off so it
+     reads as pointing at the control rather than as its border. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 35%, transparent);
+    color: var(--color-ink);
+  }
+
+  * {
+    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* ---------------------------------------------------------------------
+     Modal enter and exit.
+
+     A native <dialog> is display:none when closed, and you cannot transition
+     from display:none. @starting-style gives the browser a "before" to
+     animate from; `display` and `overlay` with allow-discrete keep the
+     dialog in the top layer until its exit has finished. Browsers without
+     @starting-style just show the dialog immediately.
+  --------------------------------------------------------------------- */
+  dialog {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.97);
+    transition:
+      opacity 0.2s var(--ease-soft),
+      transform 0.2s var(--ease-soft),
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+
+  dialog[open] {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.97);
+    }
+  }
+
+  dialog::backdrop {
+    opacity: 0;
+    transition:
+      opacity 0.2s var(--ease-soft),
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+
+  dialog[open]::backdrop {
+    opacity: 1;
+  }
+
+  @starting-style {
+    dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+/* Quality floor: motion is a preference, not a decision the dashboard makes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

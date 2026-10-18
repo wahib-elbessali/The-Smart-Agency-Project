@@ -1,0 +1,46 @@
+# Everything features/ needs. Versions are the ones this was developed and
+# verified against; the floors matter more than the exact pins.
+#
+# CPU-only by design -- the dev machine and the Raspberry Pi 4 deployment target
+# both lack a GPU, so nothing here assumes CUDA. Install the CPU build of torch
+# first if pip would otherwise pull the CUDA one:
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# --- web layer -------------------------------------------------------------
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.0
+python-multipart>=0.0.9        # required for the multipart enroll endpoints
+
+# --- vision core -----------------------------------------------------------
+opencv-python>=4.7
+numpy>=1.24
+
+# --- detection: zoning (person), weapon, fire ------------------------------
+ultralytics>=8.4
+
+# --- detector acceleration (BOTH OPTIONAL) ----------------------------------
+# features/config.json's detector.backend defaults to "auto", which picks:
+#   CUDA GPU -> pytorch/cuda | Intel GPU -> openvino | ARM -> ncnn | else cpu
+# Install whichever matches the machine; missing ones just aren't chosen, and
+# the service falls back to PyTorch on CPU, loudly. See
+# common/accelerated_detector.py for the measurements.
+openvino>=2024.0     # x86 with an Intel GPU. 2.40x measured. Useless on ARM.
+ncnn>=1.0            # ARM / Raspberry Pi. SLOWER than pytorch on x86 -- don't
+                     # install it there; `auto` only selects it on ARM anyway.
+
+# --- detection: person tracking (multi-camera fusion) -----------------------
+scipy>=1.10                    # linear_sum_assignment (Hungarian matching) in Tracker
+
+# --- face: recognition, emotion, wanted ------------------------------------
+insightface>=0.7               # buffalo_s pack: SCRFD detector + MobileFaceNet
+onnxruntime>=1.16              # CPU execution provider for the above
+hsemotion-onnx>=0.3            # emotion classification only
+
+# --- model fetching --------------------------------------------------------
+huggingface_hub>=0.20          # weapon + zoning + person_tracking weights download on first use
+
+# --- features/cloud (OPTIONAL, only if running uvicorn features.cloud.main:app) --
+# Not needed for the local-only app (uvicorn features.main:app) -- features/cloud/
+# is never imported unless you launch it yourself.
+requests>=2.31                 # HTTP client to the molab bridge -- see features/cloud/remote_detector.py

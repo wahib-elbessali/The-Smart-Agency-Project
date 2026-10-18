@@ -1,0 +1,55 @@
+{
+  "detector": {
+    "backend": "auto"
+  },
+  "zoning": {
+    "weights": null,
+    "imgsz": 1280,
+    "conf": 0.25,
+    "update_interval": 2.0
+  },
+  "weapon": {
+    "conf": 0.25,
+    "imgsz": 640,
+    "update_interval": 2.0
+  },
+  "fire": {
+    "conf": 0.25,
+    "imgsz": 1280,
+    "update_interval": 2.0
+  },
+  "emotion": {
+    "det_size": 640,
+    "update_interval": 2.0
+  },
+  "wanted": {
+    "threshold": 0.5,
+    "min_face_px": 30,
+    "det_size": 640,
+    "update_interval": 2.0,
+    "confirm_cycles": 2,
+    "hold_cycles": 5
+  },
+  "employee_activity": {
+    "poll_interval": 2.0,
+    "absence_seconds": 300.0
+  },
+  "person_tracking": {
+    "weights": null,
+    "conf": 0.25,
+    "update_interval": 0.5,
+    "gate_pw": 1.6379570867331519,
+    "revive_pw": 5.5,
+    "dup_guard_pw": 0.85,
+    "max_lost_s": 24.0,
+    "stale_gate_s": 0.4,
+    "room_trim_pct": 1.0,
+    "cam_support_min": 2,
+    "peak_min": 0.55,
+    "foot_sigma_pw": 0.7252946509519491,
+    "diffusion_revive": false
+  },
+  "face": {
+    "pack": "buffalo_s"
+  }
+}
