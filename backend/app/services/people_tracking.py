@@ -1,7 +1,7 @@
 """Backend-side consumer of the AI service's multi-camera person-tracking
 stream, plus the kiosk-zone correlations that read it.
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md). Phase B: the
+Phase B: the
 moment a visitor takes a ticket at the kiosk, link whichever anonymous
 tracked person is standing in the kiosk's zone to that ticket. Losing the
 link entirely if nobody takes a ticket is fine, by design. Phase C adds a

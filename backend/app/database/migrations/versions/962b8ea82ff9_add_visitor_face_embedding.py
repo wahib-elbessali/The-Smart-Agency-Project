@@ -4,7 +4,6 @@ Revision ID: 962b8ea82ff9
 Revises: 93703d1c9718
 Create Date: 2026-10-01 13:32:17.731800
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md), Phase D:
 visitors.face_embedding, a 512-float vector captured via /face/capture at
 kiosk ticket time, used to recognize a returning visitor by face alone -
 never exposed in VisitorResponse.

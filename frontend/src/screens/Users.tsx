@@ -154,7 +154,7 @@ export default function Users() {
   })
 
   /* Narrowed to the branch an admin has open, same as Employees and Devices
-     (UX_AUDIT.md finding 2 - this screen used to be the one exception that
+     (this screen used to be the one exception that
      ignored scope entirely, always showing every account from every agency).
      A global account (agency_id null - an ADMIN) stays visible regardless of
      which branch is open, since it isn't "in" any one of them to begin with. */

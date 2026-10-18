@@ -50,8 +50,8 @@ export default function Services() {
     enabled: isAdmin,
   })
 
-  /* The branch an admin has open, same shared scope every other screen reads
-     (UX_AUDIT.md finding 2) - picking one here calls scope.enter() below, so
+  /* The branch an admin has open, same shared scope every other screen reads:
+     picking one here calls scope.enter() below, so
      leaving for Employees or Devices keeps the same branch instead of
      resetting it. Falls back to the first branch once the list arrives, only
      until the admin has actually chosen one. Everyone else has exactly one

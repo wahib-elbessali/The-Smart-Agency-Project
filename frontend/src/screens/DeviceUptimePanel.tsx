@@ -7,8 +7,7 @@ import { Panel, PanelBody, PanelHeader } from '@/components/ui/Panel'
 import { formatDay, uptimeLevel, type UptimeLevel } from './trendFormat'
 
 /**
- * Which devices are flaky, early (scenario-planning backlog, "device
- * online/offline ratio over time"). Only devices a manager marked as periodic
+ * Which devices are flaky, early. Only devices a manager marked as periodic
  * publishers (a heartbeat) are measured: a badge reader or a kiosk talks when
  * something happens, so silence from one is normal and listing it as "down"
  * would be a lie. Those are named below the table instead of being guessed at.

@@ -1,8 +1,8 @@
 import type { AgentAttendance, AgentSummary, Counter, Workstation } from '@/api/types'
 
 /**
- * The two independent staffing signals for one counter on the visitor board
- * (scenario-planning backlog, "Busy Monday morning"). They answer different
+ * The two independent staffing signals for one counter on the visitor board.
+ * They answer different
  * questions and are kept apart on purpose:
  *
  *   attendance - did the assigned agent badge in today? Catches a whole-day

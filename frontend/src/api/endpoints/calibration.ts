@@ -17,7 +17,6 @@ import type {
  * the heaviest writes on that service: they define the floor geometry every
  * world-mode zone and the whole person tracker are computed against, so
  * getting them wrong does not fail loudly, it just moves everybody a metre.
- * BACKEND-ASKS.md §8b.
  *
  * Gates (`/calibration/gates`) used to be left out on the reasoning that
  * nothing in this dashboard read them - now the tracking/live-map screen

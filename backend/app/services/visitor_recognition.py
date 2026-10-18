@@ -1,6 +1,5 @@
 """Returning-visitor recognition by face alone - no name, phone, or ID ever
-required (scenario-planning backlog, docs/scenario-planning-backlog.md,
-Phase D).
+required.
 
 /face/capture (contracts/ai-service.md) is deliberately stateless and
 identity-free: it watches a camera source until a face appears, and returns

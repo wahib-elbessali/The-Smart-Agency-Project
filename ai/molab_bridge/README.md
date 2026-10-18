@@ -100,8 +100,7 @@ native resolution and with `--max-width 1280`.
 **1. All cameras go up in ONE message, sharing one capture timestamp.** POM fusion sums evidence
 from every camera onto a single floor grid, so cameras that disagree about *when* fuse into people
 who were never there. Running N independent bridges would reintroduce exactly the per-camera drift
-already diagnosed the hard way on the live-streaming path (`docs/tracking_attempts.md`, "The
-live-streaming era"). Bundling makes that failure structurally impossible — there is only one
+already diagnosed the hard way on the live-streaming path. Bundling makes that failure structurally impossible — there is only one
 timestamp to be wrong about.
 
 **2. Request/response, not the template's 30-deep pipeline.** The upstream bridge pipelines hard

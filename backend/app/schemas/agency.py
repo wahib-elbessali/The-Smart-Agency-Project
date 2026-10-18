@@ -45,7 +45,7 @@ class CounterResponse(CounterCreate):
     workstation_name: str | None = None
 
 
-# UX_AUDIT.md finding 4: a counter used to be writable only once, inside
+# A counter used to be writable only once, inside
 # AgencyCreate, at the moment a branch was first made - there was no route to
 # add, rename, or close one afterward. This is that route's body: every
 # field optional so a caller changes only what it means to (a rename should

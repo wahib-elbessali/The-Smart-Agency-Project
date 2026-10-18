@@ -22,7 +22,7 @@ import { requestUser } from '../currentUser'
  * a write against another branch's camera with the 403 cameras.py already
  * answers ("Acces limite a votre agence"). If backend proxies these routes
  * without that filter, every manager will see every branch's zones - which
- * is why it is written down here and in BACKEND-ASKS.md §8a rather than
+ * is why it is written down here rather than
  * left to be discovered.
  *
  * A PIXEL zone whose `camera_id` is null - the proxy could not match the AI

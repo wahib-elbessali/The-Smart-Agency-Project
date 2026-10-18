@@ -21,9 +21,8 @@ import { controlClass } from '@/components/ui/control'
  * - Zones and counters can only be sent to POST, and PUT's documented body
  *   still does not mention them - so they are editable while creating and
  *   absent while editing here too, not disabled. Counters DO now have their
- *   own routes for after creation (POST/PUT/DELETE /counters, added
- *   2026-09-23, UX_AUDIT.md finding 4 - see AgencyDetail.tsx's
- *   CountersPanel), so "absent while editing" is this form's own choice to
+ *   own routes for after creation (POST/PUT/DELETE /counters, see
+ *   AgencyDetail.tsx's CountersPanel), so "absent while editing" is this form's own choice to
  *   stay a plain create/rename-the-branch form, not a hard backend limit
  *   the way it used to be. Zones still have no separate route at all.
  * - `is_active` is the reverse: PUT accepts it, POST does not. A new agency is

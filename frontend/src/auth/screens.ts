@@ -30,7 +30,7 @@ import {
  * Lives here rather than inside AppShell so the list and the rule that filters
  * it (access.ts) sit together, and neither has to be found from the other.
  *
- * Grouped into three sections (UX_AUDIT.md finding 6): `operations` is what
+ * Grouped into three sections: `operations` is what
  * you do today (a task with a start and an end); `monitoring` is what you
  * watch (a live status, checked repeatedly, never "done"); `configuration` is
  * what you set up once and rarely return to. Every screen a role can open is

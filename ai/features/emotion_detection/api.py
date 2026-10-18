@@ -21,7 +21,7 @@ independent limits, not one: distance/resolution AND real-world expression
 ambiguity -- HD helps with the first, fixes neither by itself. Expect
 moderate confidence (roughly 0.4-0.6) from genuine customer interactions
 even on excellent close footage; don't calibrate alert thresholds against
-posed-photo intuition. See docs/live_alerts.md for the full writeup.
+posed-photo intuition.
 
 - POST      /emotion/sources         -- {"sources": {cam: url_or_path, ...}} merges
                                          into the camera registry (accumulates

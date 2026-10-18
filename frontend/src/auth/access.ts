@@ -77,7 +77,7 @@ const ROUTE_ROLES: Record<string, readonly Role[]> = {
   '/occupancy': ['ADMIN', 'MANAGER'],
   /* PROPOSED routes, not transcribed from backend source: the zone-drawing
      screen writes to the AI service's /zoning through proxies that do not
-     exist yet (api/endpoints/zones.ts, BACKEND-ASKS.md §8). Narrower than
+     exist yet (api/endpoints/zones.ts). Narrower than
      /cameras on purpose - a guard registers the cameras they watch, but the
      floor geometry every count is computed from is administration, not
      monitoring. Confirm with backend before it ships. */

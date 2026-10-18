@@ -1,6 +1,6 @@
 """enforce one active agent per counter
 
-UX_AUDIT.md finding 3: nothing in the schema stopped two agents from
+Nothing in the schema stopped two agents from
 independently setting the same counter_id - the application-level fix in
 app/api/assignments.py (clearing the previous agent on reassignment) closes
 the normal path, but only a constraint closes every path (a second server

@@ -317,8 +317,7 @@ export default function AgencyDetail() {
 }
 
 /**
- * The one autonomous action this system can take on its own (scenario-planning
- * backlog, Phase H). Off by default: a weapon alert then only notifies people.
+ * The one autonomous action this system can take on its own. Off by default: a weapon alert then only notifies people.
  * On: once a weapon is still there 4 seconds after first being seen - a single frame can be a
  * pistol/smartphone flicker - every door device (type DOOR or ACCESS_SENSORS) in this branch is
  * sent a lock command. Unlocking is always manual, from Manual controls.
@@ -456,7 +455,7 @@ function SectionPanel({
 }
 
 /**
- * Counters (guichets/bureaux), full CRUD - UX_AUDIT.md finding 4. Lives on
+ * Counters (guichets/bureaux), full CRUD. Lives on
  * this screen rather than getting its own nav item: a counter has no
  * identity apart from the branch it belongs to, the same reasoning that
  * keeps Services and Employees summarised here too, except a counter had no

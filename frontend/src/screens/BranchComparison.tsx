@@ -9,8 +9,7 @@ import { Panel, PanelBody, PanelHeader } from '@/components/ui/Panel'
 import { COLUMNS, DEFAULT_SORT, nextSort, sortBranches, type Sort } from './branchTable'
 
 /**
- * Every branch side by side (scenario-planning backlog, "Multi-branch
- * comparison"). A live snapshot, refreshed on the same ten-second cadence as
+ * Every branch side by side. A live snapshot, refreshed on the same ten-second cadence as
  * the per-branch overview, using exactly the metrics that overview already has.
  *
  * Neutral by design: nothing is coloured, ranked or flagged. Which number is

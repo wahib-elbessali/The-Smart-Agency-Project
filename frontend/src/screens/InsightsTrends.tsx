@@ -10,8 +10,7 @@ import { DeviceUptimePanel } from './DeviceUptimePanel'
 import { formatDay, formatDuration, sortServices } from './trendFormat'
 
 /**
- * History, for the decisions a manager actually makes (scenario-planning
- * backlog, "Busy Monday morning"): is a counter carrying its weight, which
+ * History, for the decisions a manager actually makes: is a counter carrying its weight, which
  * service is the bottleneck, are alerts and customer mood getting better or
  * worse. Not a number dump - each block answers one of those.
  *

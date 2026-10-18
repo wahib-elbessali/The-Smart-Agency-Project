@@ -67,8 +67,8 @@ export function listAgentSummaries(agencyId: string): AgentSummary[] {
 /**
  * `counterId: null` clears the assignment. A counter has at most one
  * current agent - mirrors the real backend's fix (a partial unique index
- * on users.counter_id, backend/app/api/assignments.py, UX_AUDIT.md finding
- * 3): assigning a second agent here relieves whoever was already on it,
+ * on users.counter_id, backend/app/api/assignments.py): assigning a second
+ * agent here relieves whoever was already on it,
  * rather than letting both silently hold the same counter.
  */
 export function assignAgent(userId: string, counterId: string | null): AgentAssignment | null {

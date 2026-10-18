@@ -45,8 +45,8 @@ import { Screen } from './Screen'
 /**
  * Site calibration: teaching the cameras where the floor is. Added
  * 2026-09-20, from ai/reference_ui/calibration rebuilt on this side of the
- * backend (contracts/ai-service.md §/calibration, proxies in
- * BACKEND-ASKS.md §8b).
+ * backend (contracts/ai-service.md §/calibration, through the backend's
+ * proxies).
  *
  * WHAT IT IS FOR, since nothing on this screen is visible in the product:
  * a pixel is not a place. One camera's "that person is at (410, 620)" means

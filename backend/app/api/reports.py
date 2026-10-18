@@ -1,4 +1,4 @@
-"""End-of-month reporting (scenario-planning backlog).
+"""End-of-month reporting.
 
 The historical counterpart of the live Insights screen and the live branch
 comparison: the same kinds of measures, over a date range someone picks, for one

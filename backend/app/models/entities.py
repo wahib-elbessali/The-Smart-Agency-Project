@@ -101,7 +101,7 @@ class Agency(Base):
     kiosk_face_camera_id: Mapped[str | None] = mapped_column(
         ForeignKey("cameras.id", ondelete="SET NULL"), nullable=True
     )
-    # Per-agency autonomous toggle (scenario-planning backlog, Phase H): when on,
+    # Per-agency autonomous toggle: when on,
     # a confirmed weapon detection also locks every DOOR device in the agency.
     # Off = notify only, which is how the system behaved before this existed.
     # Queue signal thresholds (Phase M) - dashboard-visual only, never an Alert.
@@ -219,7 +219,7 @@ class Counter(Base):
     name: Mapped[str | None] = mapped_column(String(100))
     point_type: Mapped[str] = mapped_column(String(20), nullable=False, default="COUNTER", server_default="COUNTER")
     is_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # Optional, manager-configured (Phase E, scenario-planning backlog) - an
+    # Optional, manager-configured - an
     # emotion sample only counts toward THIS counter's service-satisfaction
     # reading if it lands within a ticket's in_service_at-completed_at
     # window on this specific camera.
@@ -284,7 +284,7 @@ class Employee(Base):
     )
     hire_date: Mapped[date | None] = mapped_column()
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # Live-map identity label only (Phase F, scenario-planning backlog) -
+    # Live-map identity label only -
     # overwritten on every successful badge scan at a device with a
     # configured badge_zone_name, deliberately never guarded by "only if
     # unset" so it self-heals across the tracker's lack of long-term
@@ -314,7 +314,7 @@ class Visitor(Base):
     phone: Mapped[str | None] = mapped_column(String(30))
     identity_reference: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    # Returning-visitor recognition (Phase D, scenario-planning backlog) - a
+    # Returning-visitor recognition - a
     # 512-float face embedding captured via /face/capture, no name/identity
     # attached by the AI service itself. Never exposed in VisitorResponse.
     face_embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
@@ -374,7 +374,7 @@ class Device(Base):
     device_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[DeviceStatus] = mapped_column(Enum(DeviceStatus), default=DeviceStatus.OFFLINE, nullable=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # Optional, manager-configured (Phase F, scenario-planning backlog) -
+    # Optional, manager-configured -
     # which AI-service zone this reader's badge scans get correlated against
     # for the live-map employee tracking link.
     badge_zone_name: Mapped[str | None] = mapped_column(String(150))
@@ -477,7 +477,7 @@ class Alert(Base):
     camera_id: Mapped[str | None] = mapped_column(ForeignKey("cameras.id"))
     device_id: Mapped[str | None] = mapped_column(ForeignKey("devices.id"))
     # Set only for a wanted-type alert that fired on the kiosk camera close to
-    # when a specific ticket was issued (Phase C, scenario-planning backlog).
+    # when a specific ticket was issued.
     # Unrelated alerts (the overwhelming majority) never set this.
     ticket_id: Mapped[str | None] = mapped_column(ForeignKey("tickets.id"))
     # The tracked person an intrusion alert is about (zone_watch.py).

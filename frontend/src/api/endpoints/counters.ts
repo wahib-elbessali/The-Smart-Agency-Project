@@ -3,7 +3,7 @@ import type { Counter, CounterCreate, CounterUpdate } from '../types'
 
 /**
  * Counter (guichet/bureau) management - backend/app/api/counters.py, added
- * 2026-09-23 (UX_AUDIT.md finding 4).
+ * 2026-09-23.
  *
  * Before this, a Counter was writable exactly once: inside POST /agencies,
  * at the moment a branch was first created. There was no route to add a

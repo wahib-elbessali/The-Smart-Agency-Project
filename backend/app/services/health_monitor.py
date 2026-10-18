@@ -1,6 +1,6 @@
 """Watches the two things whose silent failure blinds the whole system.
 
-Scenario-planning backlog, "Hardware/network failure". A dead AI service means
+A dead AI service means
 no weapon/fire/wanted detection at all, and a dead MQTT broker means no gas/CO
 readings and no RFID attendance - both look like "nothing is happening", which
 is exactly what a safe branch looks like. So each gets its own CRITICAL

@@ -50,7 +50,7 @@ import { Screen } from './Screen'
  * doesn't anymore - backend/app/api/tickets.py's complete route takes an
  * optional `notes` body now (contracts/api.md §8 already documents it).
  *
- * START SERVICE / SKIP (scenario-planning backlog, Phase A)
+ * START SERVICE / SKIP
  *
  * While `current.status === 'CALLED'`, two extra actions appear alongside
  * Next: "Start service" (marks the moment the visitor actually arrived -

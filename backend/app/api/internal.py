@@ -99,7 +99,7 @@ def walk_in_ticket(
     )
     db.add(ticket)
     db.commit()
-    # Kiosk-zone tracking link (scenario-planning backlog, Phase B) - runs
+    # Kiosk-zone tracking link - runs
     # after this response is already on its way back to the kiosk hardware,
     # so an AI-service round trip never delays printing the ticket.
     background_tasks.add_task(link_ticket_tracking, ticket.id, payload.agency_id)

@@ -87,7 +87,7 @@ describe('canReach', () => {
   /* Zone drawing is narrower than the cameras screen it hangs off: a guard
      registers the cameras they watch, but the floor geometry every count is
      computed from is administration. PROPOSED, so this pins a product call
-     rather than a transcription - see BACKEND-ASKS.md §8. */
+     rather than a transcription. */
   it('keeps zone drawing to admins and managers', () => {
     expect(canReach('ADMIN', '/zones')).toBe(true)
     expect(canReach('MANAGER', '/zones')).toBe(true)

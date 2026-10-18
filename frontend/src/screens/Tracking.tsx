@@ -68,7 +68,7 @@ import { trackMarkers } from './trackMarkers'
  * fetch them and overlay polygon_m under the dots. Left out of this pass
  * because it is a second, separable feature, not because it is hard.
  *
- * TICKET LABELS (scenario-planning backlog, Phase B)
+ * TICKET LABELS
  *
  * Most dots will just show their bare AI track id - that's expected, not a
  * bug. A dot only gets relabeled with a ticket number if it was standing in
@@ -76,7 +76,7 @@ import { trackMarkers } from './trackMarkers'
  * ticket there (see GET /api/tickets/tracked); anyone who never took a
  * ticket, or took one before a kiosk zone existed, stays anonymous.
  *
- * EMPLOYEE LABELS (scenario-planning backlog, Phase F)
+ * EMPLOYEE LABELS
  *
  * A second, independent relabeling source: a dot gets an employee's name if
  * that employee's last badge scan (at a reader with a configured zone) put

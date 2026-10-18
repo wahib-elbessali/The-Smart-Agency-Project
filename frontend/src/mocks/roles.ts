@@ -130,7 +130,7 @@ export function rolesFor(key: string): Role[] | null {
   /* PROPOSED, not in the real backend - api/endpoints/zones.ts. Drawing the
      floor geometry the counts are computed from is not the same act as
      registering a camera, so this drops SECURITY where /api/cameras keeps
-     it. Flagged for confirmation in BACKEND-ASKS.md §8, not transcribed
+     it. To be confirmed with backend, not transcribed
      from backend source, which is why it sits apart from the table above.
      The per-branch half of the rule is in fixtures/zones.ts, since it
      depends on which camera the zone hangs off. */

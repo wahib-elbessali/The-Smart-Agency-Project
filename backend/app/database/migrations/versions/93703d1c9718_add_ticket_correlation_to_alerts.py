@@ -4,7 +4,6 @@ Revision ID: 93703d1c9718
 Revises: 2d44705abdec
 Create Date: 2026-10-01 12:53:50.265539
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md), Phase C:
 alerts.ticket_id, set only for a wanted-type alert that fires on the kiosk
 camera close to when a specific ticket was issued.
 

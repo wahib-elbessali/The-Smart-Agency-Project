@@ -1,6 +1,6 @@
 """CRITICAL-alert notifications: Web Push first, email for anyone push can't reach.
 
-Scenario-planning backlog, "Unified notification policy". Called from the
+One notification policy. Called from the
 places that create an Alert row (the AI consumers and the MQTT sensor path),
 once, when a CRITICAL alert is newly opened - never when an already-open alert
 is merely refreshed, or a detection that persists for a minute would send a

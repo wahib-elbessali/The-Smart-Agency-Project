@@ -4,8 +4,7 @@ Revision ID: b06980395ae7
 Revises: 5b14b5b07703
 Create Date: 2026-10-01 03:37:32.382783
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md), Phase A: the
-manual "start service" action needs its own timestamp to split queue-wait
+The manual "start service" action needs its own timestamp to split queue-wait
 from actual service time, and the manual no-show skip needs a per-agency
 minimum wait plus its own status value.
 

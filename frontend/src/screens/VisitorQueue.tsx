@@ -32,7 +32,7 @@ import {
  * `AgentQueue`. What's left here is oversight: say who's covering each
  * counter, and see how its line is doing.
  *
- * COUNTER-FIRST, NOT AGENT-FIRST (UX_AUDIT.md finding 3, reworked 2026-09-23)
+ * COUNTER-FIRST, NOT AGENT-FIRST
  *
  * This board used to list agents, each with its own "which counter" picker -
  * the counter existed only as an attribute of whichever agent happened to
@@ -58,7 +58,7 @@ import {
  * manager's session could read even if this screen wanted to show it.
  * Faking a live "now serving" here would be inventing data nobody has.
  *
- * STAFFING FLAGS (scenario-planning backlog, "Busy Monday morning")
+ * STAFFING FLAGS
  *
  * Each counter row cross-checks its assigned agent against reality with two
  * independent signals, see staffingChecks.ts: attendance (did they badge in
@@ -343,7 +343,7 @@ function VisitorQueueBoard() {
                             {(agents.data ?? []).map((agent) => {
                               /* Picking an agent already on another counter moves
                                them here - the assignment endpoint relieves their
-                               previous post automatically (UX_AUDIT.md finding 3),
+                               previous post automatically,
                                so every agent is a valid choice, not just the free
                                ones. The suffix is what makes that move visible
                                before it happens rather than after. */

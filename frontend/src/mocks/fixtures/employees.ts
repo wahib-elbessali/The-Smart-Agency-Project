@@ -17,7 +17,7 @@ registerMock<Employee[]>('GET /api/employees', {
 
 registerMockWriter('POST /api/employees', (body) => store.createEmployee(body as EmployeeCreate))
 
-/* Employee badge-scan tracking link (scenario-planning backlog, Phase F) is
+/* Employee badge-scan tracking link is
  * entirely backend/AI-driven - same reasoning as tickets/tracked's fixture,
  * the mock store has no notion of live tracked people, so always empty is
  * the honest fixture. */

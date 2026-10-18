@@ -46,7 +46,7 @@ export function fetchQueue(serviceId?: string, signal?: AbortSignal): Promise<Ti
 
 /**
  * Every non-terminal ticket currently linked to a live tracked person - the
- * kiosk-zone correlation (scenario-planning backlog, Phase B). Used by
+ * kiosk-zone correlation. Used by
  * Tracking.tsx to relabel a tracked dot by ticket number instead of a bare
  * AI track id. Most tickets will never appear here at all: linking only
  * happens for kiosk-created tickets, only when the agency has a kiosk zone

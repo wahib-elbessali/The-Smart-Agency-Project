@@ -1,4 +1,4 @@
-"""Failed RFID / door attempts (scenario-planning backlog, "Flaky sensor/device").
+"""Failed RFID / door attempts.
 
 Until now a failed check-rfid or door-access left no trace anywhere - AuditLog
 only covers dashboard users - so a flaky reader misreading a valid card, a

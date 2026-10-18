@@ -123,7 +123,7 @@ without anyone noticing.
 
 Two values are measured rather than chosen and shouldn't be changed casually: `fire.imgsz` of 1280
 (smoke scores roughly double what it does at 640) and `wanted.threshold` of 0.50 (an open-set
-operating point — see `docs/live_alerts.md` for what it buys and what it can't promise).
+operating point, measured by `evaluation/wanted_openset_eval.py`).
 `zoning.weights` set to a local `.pt` path skips the 40MB download.
 
 `person_tracking`'s knobs mirror `architectures/pom_fusion/generic_pipeline.py`'s own CLI flags at

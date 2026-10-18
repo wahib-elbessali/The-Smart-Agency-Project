@@ -1,5 +1,4 @@
-"""Device uptime history (scenario-planning backlog, "device online/offline
-ratio over time - catches flaky hardware early").
+"""Device uptime history.
 
 Two facts shaped this:
 

@@ -1,8 +1,7 @@
 import type { BranchOverview } from '@/api/types'
 
 /**
- * The admin's branch comparison (scenario-planning backlog, "Multi-branch
- * comparison"): one row per branch, reusing exactly the metrics the per-branch
+ * The admin's branch comparison: one row per branch, reusing exactly the metrics the per-branch
  * overview already has - nothing is invented for the comparison.
  *
  * NEUTRAL ON PURPOSE. There is no highlighting, no thresholds and no "worst

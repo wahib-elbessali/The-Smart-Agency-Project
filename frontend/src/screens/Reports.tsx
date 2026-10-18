@@ -25,7 +25,7 @@ import {
 import { formatDay, formatDuration } from './trendFormat'
 
 /**
- * End-of-month reporting (scenario-planning backlog): the historical
+ * End-of-month reporting: the historical
  * counterpart of the live Insights screen. The same kinds of measures over a
  * date range someone picks - for one branch (a manager reviewing their own
  * month) or, for an admin, every branch at once with totals.

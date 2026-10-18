@@ -68,8 +68,8 @@ export function AppShell() {
   const isAdmin = user?.role === 'ADMIN'
 
   /* Only an ADMIN has more than one branch to switch between, so only an
-     ADMIN needs this fetched. The switcher is the ONE place scope changes
-     (UX_AUDIT.md findings 1 and 2): every screen reads this choice instead of
+     ADMIN needs this fetched. The switcher is the ONE place scope changes:
+     every screen reads this choice instead of
      running its own agency picker. */
   const agencies = useQuery({
     queryKey: ['agencies'],
@@ -371,7 +371,7 @@ export function AppShell() {
           </div>
         )}
 
-        {/* Always visible for an ADMIN, scoped or not (UX_AUDIT.md finding 1):
+        {/* Always visible for an ADMIN, scoped or not:
             an admin working through several screens must never lose sight of
             which branch (if any) they are looking at. */}
         {isAdmin && (

@@ -8,8 +8,8 @@ That template streams one webcam. POM fusion needs all N cameras from the
 SAME instant -- it sums evidence from every camera onto one floor grid, so
 cameras that disagree about *when* fuse into people who were never there.
 Running N independent bridges would reintroduce exactly the per-camera
-drift that was already diagnosed the hard way on the live-streaming path
-(see docs/tracking_attempts.md, "The live-streaming era"): three cameras
+drift that was already diagnosed the hard way on the live-streaming path:
+three cameras
 backing up by different amounts is three cameras looking at three different
 moments. Bundling makes that failure structurally impossible rather than
 merely unlikely -- there is only one capture timestamp to be wrong about.

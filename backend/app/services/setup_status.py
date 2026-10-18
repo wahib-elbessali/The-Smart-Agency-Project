@@ -1,4 +1,4 @@
-"""Is a branch set up? (scenario-planning backlog, "New branch, day one")
+"""Is a branch set up?
 
 A new branch needs a lot configured, in an order the code actually requires,
 and nothing showed what was still missing. This answers that as a live,

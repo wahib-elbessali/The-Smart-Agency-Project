@@ -7,8 +7,7 @@ import { Panel, PanelBody, PanelHeader } from '@/components/ui/Panel'
 import { describeDoor, reasonLabel } from './accessFormat'
 
 /**
- * Failed badge attempts per door (scenario-planning backlog, "Flaky
- * sensor/device"). Before this a failed scan left no trace anywhere, so a
+ * Failed badge attempts per door. Before this a failed scan left no trace anywhere, so a
  * flaky reader misreading a valid card, a card physically wearing out, and
  * someone testing random cards at a door could not be told apart.
  *

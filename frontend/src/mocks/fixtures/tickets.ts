@@ -58,7 +58,7 @@ registerMockWriter('POST /api/tickets/{id}/start-service', (_body, path) =>
 
 registerMockWriter('POST /api/tickets/{id}/skip', (_body, path) => store.skipTicket(idFrom(path)))
 
-/* Kiosk-zone tracking link (scenario-planning backlog, Phase B) is entirely
+/* Kiosk-zone tracking link is entirely
  * backend/AI-driven - the mock store has no notion of live tracked people,
  * so there's never anything to report here. Always empty is the honest
  * fixture, not a stand-in for one that's missing. */

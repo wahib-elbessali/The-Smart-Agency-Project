@@ -1,4 +1,4 @@
-"""Bulk door commands for automated responses (scenario-planning backlog).
+"""Bulk door commands for automated responses.
 
 Phase H uses it to lock an agency's doors on a confirmed weapon detection.
 A "door device" is any Device whose device_type is DOOR or ACCESS_SENSORS

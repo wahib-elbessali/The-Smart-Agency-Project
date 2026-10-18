@@ -187,8 +187,7 @@ export interface CounterCreate {
 }
 
 /**
- * PUT /api/counters/{id} — from CounterUpdate (backend/app/api/counters.py,
- * added 2026-09-23, UX_AUDIT.md finding 4). All fields optional and
+ * PUT /api/counters/{id} — from CounterUpdate. All fields optional and
  * exclude_unset server-side: renaming a counter must not silently reopen
  * one that was deliberately closed. Which service a counter serves moves
  * through its own route (assignCounterService in endpoints/services.ts),
@@ -970,7 +969,7 @@ export type OccupancyFrame =
  * picture so the detector counts the people standing inside it
  * (contracts/ai-service.md §/zoning), and it lives in the AI service's own
  * store, not in our database. Nothing links the two today; whether they
- * should be linked is an open question for backend (BACKEND-ASKS.md §8d).
+ * should be linked is an open question for backend.
  * Named `CameraZone` here so no screen can confuse them by accident.
  *
  * `name` is the primary key — the AI service stores zones in a flat
@@ -1162,7 +1161,7 @@ export type WorkstationFrame =
  * The one-time per-site geometry every multi-camera feature sits on:
  * world-mode zones, person tracking, anything that needs a real floor
  * position rather than one camera's pixels. contracts/ai-service.md
- * §/calibration, proxied by the backend (BACKEND-ASKS.md §8b).
+ * §/calibration, proxied by the backend.
  *
  * TWO FIELD NAMES BELOW COME FROM THE AI SOURCE, NOT THE CONTRACT, because
  * the contract's example for /calibration/align disagrees with what
@@ -1223,9 +1222,7 @@ export interface CalibrationDiagnostics {
  * that the only thing a browser could do with it is draw the bird's-eye
  * overlay, and this screen didn't. That's no longer true (see the BEV mode
  * on the Calibration screen), so the decision flips: the proxy needs to
- * stop dropping it. Tracked as the same ask this was always noted under
- * (BACKEND-ASKS.md §8b), not a new one - this was the thing that ask was
- * waiting on. The mock includes a (fake, affine-only) Hinv now regardless
+ * stop dropping it. The mock includes a (fake, affine-only) Hinv now regardless
  * of what the real proxy currently does, same as every other field here
  * that's ahead of a backend that hasn't caught up yet.
  */

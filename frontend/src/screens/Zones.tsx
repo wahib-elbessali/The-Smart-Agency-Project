@@ -29,7 +29,7 @@ import { Screen } from './Screen'
  * is a local Flask page that talks to the unauthenticated AI service
  * directly, which this dashboard must never do (project rule, 2026-08-11).
  * Everything here goes through PROPOSED backend proxies; see
- * api/endpoints/zones.ts and BACKEND-ASKS.md §8.
+ * api/endpoints/zones.ts.
  *
  * WHY THIS SCREEN MATTERS TO THE ONE NEXT TO IT
  *
@@ -90,7 +90,7 @@ export default function Zones() {
     enabled: isAdmin,
   })
 
-  /* The shared branch scope every screen now reads (UX_AUDIT.md finding 2) -
+  /* The shared branch scope every screen now reads -
      picking one below calls scope.enter(), same as Services and Cameras.
      Falls back to the first branch only until the admin has chosen one.
      Everyone else has exactly one agency. */

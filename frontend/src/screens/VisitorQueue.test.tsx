@@ -41,8 +41,8 @@ const WAIT = { timeout: 4000 }
 
 /* This screen is oversight only now (2026-09-05): who's covering each
    counter, and how its line is doing. Running the queue itself moved to
-   AgentQueue. Counter-first rather than agent-first since 2026-09-23
-   (UX_AUDIT.md finding 3) - the counter is the fixed thing, the covering
+   AgentQueue. Counter-first rather than agent-first since 2026-09-23:
+   the counter is the fixed thing, the covering
    agent rotates, so the list below is counters with a "who's covering
    this" picker each, not agents with a "which counter" picker each. */
 /* Counters are grouped under their service now (one shared queue per

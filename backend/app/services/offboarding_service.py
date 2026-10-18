@@ -1,5 +1,4 @@
-"""Offboarding cascade for an employee who leaves (scenario-planning backlog,
-"Employee offboarding").
+"""Offboarding cascade for an employee who leaves.
 
 RFID and door access already check Employee.is_active live on every swipe, so
 those need nothing here. What did not exist: an INACTIVE (or deleted) employee

@@ -4,7 +4,6 @@ Revision ID: 53c89995810d
 Revises: 1a38f3ce9dbc
 Create Date: 2026-10-01 14:38:51.828041
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md), Phase F:
 devices.badge_zone_name (which AI-service zone a reader's badge scans
 correlate against) and employees.tracking_id (the live-map identity label,
 overwritten on every successful scan - see entities.py's comment on why

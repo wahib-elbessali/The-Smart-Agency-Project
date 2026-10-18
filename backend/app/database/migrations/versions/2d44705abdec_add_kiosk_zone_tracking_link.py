@@ -4,7 +4,6 @@ Revision ID: 2d44705abdec
 Revises: b06980395ae7
 Create Date: 2026-10-01 04:08:01.528169
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md), Phase B:
 agencies.kiosk_zone_name names which existing AI-service zone acts as the
 kiosk zone; tickets.tracking_id/tracking_first_seen_at get set by a
 background task when someone's standing in it at ticket-creation time.

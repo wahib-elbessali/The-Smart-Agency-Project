@@ -13,7 +13,7 @@ router = APIRouter(tags=["Counters"])
 COUNTER_READ_ROLES = [Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER, RoleName.AGENT))]
 COUNTER_WRITE_ROLES = [Depends(require_roles(RoleName.ADMIN, RoleName.MANAGER))]
 
-# UX_AUDIT.md finding 4. Before this file, a Counter row was writable exactly
+# Before this file, a Counter row was writable exactly
 # once: inside POST /agencies, at the moment a branch was first created
 # (AgencyCreate.counters). There was no route to add a 5th window, rename
 # one, or close it once the branch existed - confirmed by grepping every

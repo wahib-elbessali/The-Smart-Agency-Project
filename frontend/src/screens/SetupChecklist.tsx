@@ -12,8 +12,7 @@ import { Panel, PanelBody, PanelHeader } from '@/components/ui/Panel'
 import { groupSetupItems, isExpanded, progressPercent, summaryLine } from './setupProgress'
 
 /**
- * What this branch still needs before it is fully set up (scenario-planning
- * backlog, "New branch, day one"). A new branch depends on a long chain of
+ * What this branch still needs before it is fully set up. A new branch depends on a long chain of
  * configuration in an order the code actually requires, and nothing used to
  * show what was missing.
  *

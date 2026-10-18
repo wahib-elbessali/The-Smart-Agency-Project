@@ -1,8 +1,7 @@
 import type { Agency, Ticket } from '@/api/types'
 
 /**
- * How backed-up one service's line is (scenario-planning backlog, "Busy Monday
- * morning"): the worse of two measures, each compared against a per-agency
+ * How backed-up one service's line is: the worse of two measures, each compared against a per-agency
  * warning and critical threshold, same shape as a sensor's warning_max /
  * critical_max.
  *

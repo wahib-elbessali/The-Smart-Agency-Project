@@ -22,9 +22,9 @@ identify() takes the max. With K stored embeddings, one unknown face gets K
 chances to false-match, and the live loop re-tests every camera every couple of
 seconds. A verification threshold carried over here produces routine false
 accusations. The default below is measured on the right task by
-evaluation/wanted_openset_eval.py -- see that script and docs/live_alerts.md for
-the numbers, including the honest limit on how small a false-alarm rate that
-measurement can actually resolve.
+evaluation/wanted_openset_eval.py -- see that script for the numbers,
+including the honest limit on how small a false-alarm rate that measurement
+can actually resolve.
 
 `threshold` is therefore a REQUIRED argument, not a defaulted one: the measured
 value lives in DEFAULT_WANTED_THRESHOLD for callers to pass explicitly, but no
@@ -114,8 +114,8 @@ def detect_wanted(frame_bgr, watchlist, threshold, det_size=(640, 640),
             # Too small to carry real identity information. identify() would
             # still happily return its best match, which makes tiny faces a
             # false-accusation source rather than a missed-detection one --
-            # docs/live_alerts.md records 9-28px crops on this project's own
-            # footage reading as upsampling noise for emotion classification.
+            # 9-28px crops on this project's own footage were measured to read
+            # as upsampling noise for emotion classification.
             continue
         name, score = identify(watchlist, face["embedding"], threshold=threshold)
         if name is None:

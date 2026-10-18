@@ -129,8 +129,8 @@ class LiveAlertService:
 
         Detection is INTERMITTENT for some models in a way a presence check
         shouldn't be: a face turns away for one cycle, or a pistol scores as a
-        smartphone for one frame (a real, documented case -- see
-        docs/live_alerts.md), and raw class-set comparison then reports the thing
+        smartphone for one frame (a real, observed case), and raw class-set
+        comparison then reports the thing
         as GONE and back again. For a wanted-person alert that's not merely
         chatty: an empty set tells the backend the person has left, potentially
         cancelling a response.

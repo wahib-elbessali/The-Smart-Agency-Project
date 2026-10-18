@@ -219,7 +219,7 @@ def update_agent_assignment(
     if not counter.service.is_active:
         raise HTTPException(status_code=409, detail="Le service du guichet est inactif")
 
-    # UX_AUDIT.md finding 3: nothing enforced one counter having at most one
+    # Nothing enforced one counter having at most one
     # current agent - two agents could each set their own counter_id to the
     # same counter and neither assignment would ever be told about the
     # other. A counter is a single physical window; whoever was already

@@ -4,7 +4,6 @@ Revision ID: 1a38f3ce9dbc
 Revises: 962b8ea82ff9
 Create Date: 2026-10-01 14:10:00.000000
 
-Scenario-planning backlog (docs/scenario-planning-backlog.md), Phase E:
 counters.emotion_camera_id - an optional, manager-configured link so an
 emotion sample only counts toward a service-satisfaction reading if it
 lands within a ticket's in_service_at-completed_at window on this specific

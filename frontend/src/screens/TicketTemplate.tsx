@@ -28,8 +28,7 @@ import {
 } from './ticketLayout'
 
 /**
- * The thermal-printer ticket layout, per branch (scenario-planning backlog,
- * "New branch, day one"). The backend for this was complete and tested but
+ * The thermal-printer ticket layout, per branch. The backend for this was complete and tested but
  * nothing in the dashboard could reach it, so every branch silently printed the
  * generic French default until somebody noticed.
  *

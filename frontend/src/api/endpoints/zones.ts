@@ -13,7 +13,7 @@ import type {
  * These are the polygons the AI service counts people inside
  * (contracts/ai-service.md §/zoning). They are NOT `Agency.zones`; see the
  * comment on `CameraZone` in api/types.ts for why two unrelated things share
- * the word, and BACKEND-ASKS.md §8d for the question that has to be settled.
+ * the word.
  *
  * WHY THESE GO THROUGH THE BACKEND
  *
