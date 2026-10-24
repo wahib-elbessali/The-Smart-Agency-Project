@@ -19,6 +19,12 @@ Configuration: sim_config.json next to this file (written by setup_sim.py),
 overridable with SIM_CONFIG, SIM_REAL_AI_URL, SIM_BACKEND_URL, SIM_MQTT_HOST,
 SIM_MQTT_PORT.
 
+Simulated or real: sim_config.json's "real" section ("w.py real kiosk on")
+marks the cameras or a board (kiosk, gate, display, door) as real. The world
+then stops playing it: no sensor readings, kiosk polling or MQTT acks for a
+real board, and the commands that would play it are refused. Read live, so it
+can change while the world runs.
+
 Control: POST /_sim/cmd, GET /_sim/state, GET /_sim/log (driven by w.py),
 GET /_sim/geometry and POST /_sim/project (used by setup_sim.py).
 See docs/mocking-guide.md.
@@ -34,7 +40,8 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CFG = json.load(open(os.environ.get("SIM_CONFIG", os.path.join(HERE, "sim_config.json")), encoding="utf-8"))
+CFG_FILE = os.environ.get("SIM_CONFIG", os.path.join(HERE, "sim_config.json"))
+CFG = json.load(open(CFG_FILE, encoding="utf-8"))
 REAL_AI = os.environ.get("SIM_REAL_AI_URL", CFG.get("real_ai_url", "http://127.0.0.1:8001"))
 BACKEND = os.environ.get("SIM_BACKEND_URL", CFG.get("backend_url", "http://127.0.0.1:8000"))
 MQTT_HOST = os.environ.get("SIM_MQTT_HOST", CFG.get("mqtt_host", "127.0.0.1"))
@@ -42,7 +49,25 @@ MQTT_PORT = int(os.environ.get("SIM_MQTT_PORT", CFG.get("mqtt_port", 1883)))
 AGENCY = CFG["agency_id"]
 # role -> {"id": mqtt_client_id, "key": device key}
 KIOSK, GATE, DISPLAY, DOOR = (CFG["devices"][r]["id"] for r in ("kiosk", "gate", "display", "door"))
-KEYS = {d["id"]: d["key"] for d in CFG["devices"].values()}
+KEYS = {d["id"]: d.get("key") for d in CFG["devices"].values()}  # a real board's key is not ours
+ROLES = ("cameras", "kiosk", "gate", "display", "door")
+_real = {"mtime": None, "flags": {}}
+
+
+def is_real(role):
+    """Whether the cameras / a board are the real thing (sim_config.json "real"),
+    re-read when the file changes."""
+    try:
+        m = os.path.getmtime(CFG_FILE)
+        if m != _real["mtime"]:
+            _real["flags"] = json.load(open(CFG_FILE, encoding="utf-8")).get("real", {})
+            _real["mtime"] = m
+    except (OSError, ValueError):
+        pass
+    return bool(_real["flags"].get(role))
+
+
+ROLE_OF = {KIOSK: "kiosk", GATE: "gate", DISPLAY: "display", DOOR: "door"}
 W, H = 1280, 720
 ROOM = (12.0, 8.0)  # metres
 
@@ -700,7 +725,8 @@ async def sim_state():
             "sensor_targets": {k: v[1] for k, v in sensors.items()}, "devices": devices, "ai_down": ai_down[0],
             "people_tracking": phase, "zones": {k: v["count"] for k, v in last["zones"].items()},
             "workstations": {r["name"]: r["status"] for r in workstation_rows()},
-            "alerts": {f: {c: [d["class"] for d in ds] for c, ds in v.items() if ds} for f, v in last["alerts"].items()}}
+            "alerts": {f: {c: [d["class"] for d in ds] for c, ds in v.items() if ds} for f, v in last["alerts"].items()},
+            "real": {r: is_real(r) for r in ROLES}}
 
 
 @app.get("/_sim/log")
@@ -712,6 +738,10 @@ async def sim_log(since: int = 0):
 async def sim_cmd(req: Request):
     c = await req.json()
     op = c["op"]
+    role = {"kiosk": "kiosk", "gate": "gate", "door": "door", "callnext": "display", "sensor": "door"}.get(op, "cameras")
+    if is_real(role):
+        what = "the cameras are" if role == "cameras" else f"the {role} board is"
+        return JSONResponse({"error": f"{what} real: do it for real (or: w.py real {role} off)"}, 409)
     try:
         if op == "add":
             name = c["name"]
@@ -783,7 +813,8 @@ async def device_action(c):
         def h(dev):
             return {"X-Device-Key": KEYS[dev]}
         if op in ("kiosk", "callnext"):
-            r = await b.get(f"/internal/tickets/kiosk-config?agency_id={AGENCY}&device_id={KIOSK}", headers=h(KIOSK))
+            dev = KIOSK if op == "kiosk" else DISPLAY  # any device of the branch may read it
+            r = await b.get(f"/internal/tickets/kiosk-config?agency_id={AGENCY}&device_id={dev}", headers=h(dev))
             svcs = r.json()["services"]
             q = c["service"].lower()
             sv = next((s for s in svcs if q in s["code"].lower() or q in s["name"].lower()), None)
@@ -838,6 +869,8 @@ def on_message(client, userdata, msg):
     except Exception:
         return
     dev, kind = msg.topic.split("/")[3], msg.topic.split("/")[4]
+    if dev in ROLE_OF and is_real(ROLE_OF[dev]):  # the real board answers for itself
+        return
     if kind == "ticket-called":
         devices["display"][payload.get("service_code")] = payload.get("ticket_number", "")[-1:]
         log(f"7-SEG {dev}: {payload.get('service_code')} -> {payload.get('ticket_number')}  display {devices['display']}")
@@ -875,9 +908,9 @@ def iot_main():
     n = 0
     while True:
         try:
-            if n % 30 == 0:
+            if n % 30 == 0 and not is_real("door"):
                 publish_sensors()
-            if n % 60 == 0:
+            if n % 60 == 0 and not is_real("kiosk"):
                 httpx.get(f"{BACKEND}/internal/tickets/kiosk-config", params={"agency_id": AGENCY, "device_id": KIOSK},
                           headers={"X-Device-Key": KEYS[KIOSK]}, timeout=10)
         except Exception as e:

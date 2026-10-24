@@ -265,6 +265,7 @@ python tools/sim/w.py <command>      # no arguments: the full list
 | `fire PLACE [smoke]` / `fire clear` | Fire or smoke in view of the cameras |
 | `ai down` / `ai up` | The AI service stops / comes back |
 | `clock` / `clock HH:MM` | Read / move the backend's fake clock (your computer's timezone) |
+| `real` / `real PART on\|off` | Show / change what is simulated and what is real (2.4) |
 | `state` / `log [SINCE]` / `places` | What the world looks like, what it did, the named places |
 
 Places: `outside`, `door`, `entrance`, `kiosk`, `waiting`, `waiting2`,
@@ -288,20 +289,59 @@ Places: `outside`, `door`, `entrance`, `kiosk`, `waiting`, `waiting2`,
 | AI outage alerts | `ai down`, wait about a minute, `ai up` |
 | End of day | `clock 17:00`: waiting tickets become no-show within a minute |
 
-### 2.4 Scenarios: replayable scenes
+### 2.4 Simulated or real
+
+Each part of the branch can be simulated by the world or be the real thing:
+
+| Part | Simulated | Real |
+|---|---|---|
+| `cameras` | The world's people, cameras and detections | Real cameras watched by the real AI service: the backend's `AI_SERVICE_URL` points at the AI service (8001), not at the world |
+| `kiosk`, `gate`, `display`, `door` | The world plays the board | The board itself, registered on the Devices page with its own key |
+
+```bash
+python tools/sim/w.py real                  # what is simulated, what is real
+python tools/sim/w.py real kiosk on         # several: real kiosk=on gate=on
+```
+
+The choice lives in `sim_config.json` (`"real"`). The world reads it live: it
+stops publishing sensor readings, polling the kiosk or answering MQTT for a real
+board, and refuses the commands that would play it. Choose before
+`setup_sim.py devices`, which then leaves real boards and their keys alone.
+
+Real boards and cameras stamp real time, so as soon as anything is real, run
+the backend on the real clock (`uvicorn app.main:app`), not `run_fake_clock.py`.
+
+### 2.5 Scenarios: replayable days
 
 Write the commands in a text file and play it:
 
 ```bash
-python tools/sim/play.py tools/sim/scenarios/demo_day.txt
+python tools/sim/play.py tools/sim/scenarios/full_day.txt
+python tools/sim/play.py tools/sim/scenarios/full_day.txt --from "Opening"
 ```
 
-Besides `w.py` commands, a scenario can `wait 5` (seconds), `say Watch the
-Alerts screen` (printed to the tester) and `pause` (wait for Enter). See
-`tools/sim/scenarios/demo_day.txt`: opening, the first visitors, a call, a
-temperature alert, an armed visitor, closing.
+| Line | What it does |
+|---|---|
+| `section NAME` | A part of the scenario; `--from NAME` starts there |
+| `say TEXT` | Printed to the tester ("watch the Alerts screen") |
+| `do TEXT` | Something to do by hand ("calibrate cam1"); waits for Enter |
+| `pause` / `wait 5` | Wait for Enter / 5 seconds |
+| `clock HH:MM` | Moves the fake clock; on the real clock it only shows the story's time |
+| `COMMAND >> TEXT` | A `w.py` command. When the part it plays is real, TEXT is shown as what to do in real life ("press Virement on the kiosk") and the player waits for Enter |
 
-### 2.5 The fake clock
+A command's part: people, fire and `ai` are the cameras; `kiosk`, `gate`,
+`door`, `callnext` (display) and `sensor` (door board) are the boards. A real
+command with no `>>` text is skipped. A failing command asks: retry, skip or
+quit.
+
+`tools/sim/scenarios/full_day.txt` is a whole working day from an empty app:
+setting up the stack, the branch, the boards and the cameras (calibration,
+alignment, zones), then 07:45 to closing: staff badging in, the opening rush
+on two counters, temperature and gas alarms, a refused door, an armed visitor,
+a wanted person at the kiosk, the AI service going down, lunch, a returning
+visitor and the end of the day. `demo_day.txt` is a short version.
+
+### 2.6 The fake clock
 
 `run_fake_clock.py` starts the backend at the time you give and lets it tick in
 real time. `w.py clock 09:30` jumps it. The browser follows it only with
@@ -313,7 +353,7 @@ real time. `w.py clock 09:30` jumps it. The browser follows it only with
   timezone, which is what the dashboard shows.
 - Without the fake clock everything still works, on real time.
 
-### 2.6 Troubleshooting
+### 2.7 Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
@@ -325,7 +365,7 @@ real time. `w.py clock 09:30` jumps it. The browser follows it only with
 | World restarted, people gone | People are saved in `tools/sim/world_people.json`; delete it for an empty floor |
 | `setup_sim.py` cannot reach the world | Start the world before `vision` |
 
-### 2.7 Starting over
+### 2.8 Starting over
 
 Stop everything, then: delete `tools/sim/sim_config.json` and
 `tools/sim/world_people.json`, recreate the database (`alembic upgrade head`,

@@ -1,0 +1,330 @@
+# A full working day at a branch, from an empty app to closing time.
+#
+#   python tools/sim/play.py tools/sim/scenarios/full_day.txt
+#   python tools/sim/play.py tools/sim/scenarios/full_day.txt --from "Opening"     (resume at a section)
+#
+# Every part can be simulated or real: "python tools/sim/w.py real" shows the
+# choice, "w.py real kiosk on" makes the kiosk the real board. A step played by a
+# real part tells you what to do in real life instead (the text after ">>").
+# The day's times are applied when the backend runs on the fake clock, and only
+# shown when it runs on the real clock (needed as soon as anything is real).
+
+section Setup 1: the stack
+say Start everything (docs/mocking-guide.md part 2.2). Memory-hungry on a laptop: close what you do not need.
+do Docker: Postgres, Redis and the MQTT broker are running
+do The AI service runs: cd ai && uvicorn features.main:app --port 8001
+do The dashboard runs on the real backend: frontend/.env.local has VITE_USE_MOCKS=false, then cd frontend && npx vite --config vite.sim.config.ts
+say Choose now what is simulated and what is real (all simulated by default), in another terminal:
+say   python tools/sim/w.py real                    shows the choice
+say   python tools/sim/w.py real kiosk on           the real kiosk board (same for gate, display, door)
+say   python tools/sim/w.py real cameras on         real cameras watched by the real AI service
+say Anything real needs the backend on the REAL clock (real boards and cameras stamp real time).
+do Your choice is set (python tools/sim/w.py real)
+do The backend runs. All simulated: AI_SERVICE_URL=http://127.0.0.1:8123 in backend/.env, then python tools/sim/run_fake_clock.py 2026-10-26T07:45:00Z. Real cameras: AI_SERVICE_URL=http://127.0.0.1:8001 and uvicorn app.main:app
+
+section Setup 2: the branch, in the app
+say Sign in as the admin. Everything below is done in the dashboard, like on a real branch.
+do Agencies: add the branch, open 08:30, close 16:30
+do Services: Virement (code VIR) and Credit (code CRE)
+do The branch's page: counters Guichet 1 (Virement) and Guichet 2 (Credit for now)
+do Employees: Security, Agent and Manager, with the badges RFID-DEV-SECURITY, RFID-DEV-AGENT and RFID-DEV-MANAGER (real gate: the badge numbers of your real cards, and change them below too)
+do The branch's page, rooms: "Local technique" (Security and Manager only, not the Agent) and "Bureau de direction" (Manager only)
+do Users: an Agent account and a Manager account for this branch (the counters are served from their screens)
+
+section Setup 3: the boards
+say Simulated boards are registered by a script; real ones by you.
+do Simulated boards: python tools/sim/setup_sim.py devices --email ADMIN_EMAIL --password ADMIN_PASSWORD (add --mqtt-port if your broker is not on 1883)
+do Real boards: on the Devices page, add each real one with its board id (ticket-kiosk-01, rfid-gate-01, queue-display-01, access-sensors-1), flash its key and power it on. Check it shows online
+do The world runs (it plays whatever is simulated): cd tools/sim && uvicorn world:app --port 8123
+do Badge rooms for the script: python tools/sim/setup_sim.py rooms --email ADMIN_EMAIL --password ADMIN_PASSWORD
+
+section Setup 4: the cameras
+say Simulated cameras: the world films a 12 m x 8 m floor. Register them under these exact names.
+say Real cameras: your own names and stream URLs; place the calibration rectangle and markers on the real floor.
+do Cameras page: add cam1 (entrance wall) and cam2 (side wall): people tracking, weapon, fire
+do Cameras page: add cam3 (kiosk camera, faces): watch list and satisfaction
+do Cameras page: add cam4 (director's office door camera): no detections, used for badge + face doors
+say Stream URLs for the simulated ones: rtsp://127.0.0.1:8554/cam1 ... cam4 (the world answers for them by name)
+do Calibration: calibrate cam1 by clicking the yellow rectangle's corners R1, R2, R3, R4 in order (simulated: 1.5 m x 1 m)
+do Calibration: calibrate cam2 the same way, on the same rectangle
+do Calibration: align cam1 and cam2 by clicking the same pink markers (M1 to M6) in both views
+do Tracking: use cam1 and cam2 for people tracking. The Live map should say tracking is running
+do Zones: draw Gate (at the entrance), Kiosk zone (in front of BORNE), Waiting area (ATTENTE), Counter 1 desk zone (behind GUICHET 1) and Counter 2 desk zone (behind GUICHET 2)
+do The branch's page: kiosk zone = Kiosk zone, kiosk face camera = cam3
+do Devices page: the gate reader's badge zone = Gate
+do Staffing: workstations Guichet 1 (Counter 1 desk zone) and Guichet 2 (Counter 2 desk zone), each linked to its counter
+say Shortcut, simulated cameras only: python tools/sim/setup_sim.py vision does all of Setup 4 by itself.
+say Setup done. Open the Live map, Employee presence and the Visitor queue side by side.
+pause
+
+section Before opening
+say Before opening. Watch: Employee presence, Live map
+clock 07:45
+
+say 07:46 Security arrives and badges in at the gate. Watch: Employee presence (updates by itself)
+clock 07:46
+add Security employee outside entrance rfid=RFID-DEV-SECURITY >> Security walks in through the entrance
+wait 4
+gate Security >> badge RFID-DEV-SECURITY on the gate reader
+move Security center >> Security walks to the middle of the room
+wait 4
+
+say 07:48 The Agent arrives, badges in and goes to Guichet 1
+clock 07:48
+add Agent employee outside entrance rfid=RFID-DEV-AGENT >> the Agent walks in through the entrance
+wait 4
+gate Agent >> badge RFID-DEV-AGENT on the gate reader
+move Agent desk1 >> the Agent sits behind Guichet 1
+wait 8
+
+say 07:54 The Manager arrives and badges in
+clock 07:54
+add Manager employee outside entrance rfid=RFID-DEV-MANAGER >> the Manager walks in through the entrance
+wait 4
+gate Manager >> badge RFID-DEV-MANAGER on the gate reader
+move Manager bureau >> the Manager goes to the director's office
+wait 6
+pause
+
+section Opening
+say 08:30 Opening. Karim takes a Virement ticket at the kiosk. Watch: Visitor queue, Live map (his ticket on his dot)
+clock 08:30
+add Karim visitor outside kiosk >> a visitor (Karim) walks in to the kiosk
+wait 7
+kiosk Karim VIR >> press Virement on the kiosk
+move Karim waiting >> Karim sits in the waiting area
+wait 4
+pause
+
+say 08:32 Morning rush: five more Virement visitors
+clock 08:32
+add Salma visitor outside kiosk >> five visitors come in one after the other; each takes a Virement ticket and sits down
+wait 7
+kiosk Salma VIR >> press Virement on the kiosk (Salma)
+move Salma waiting2
+add Youssef visitor outside kiosk
+wait 7
+kiosk Youssef VIR >> press Virement on the kiosk (Youssef)
+move Youssef waiting3
+add Nadia visitor outside kiosk
+wait 7
+kiosk Nadia VIR >> press Virement on the kiosk (Nadia)
+move Nadia waiting
+add Leila visitor outside kiosk
+wait 7
+kiosk Leila VIR >> press Virement on the kiosk (Leila)
+move Leila waiting2
+add Mehdi visitor outside kiosk
+wait 7
+kiosk Mehdi VIR >> press Virement on the kiosk (Mehdi)
+move Mehdi waiting3
+wait 3
+say 6 Virement tickets waiting. Watch: Visitor queue (getting busy)
+pause
+
+section Serving the queue
+say 08:39 The Manager opens Guichet 2 to help with Virement
+clock 08:39
+do In the app: put Guichet 2 on Virement and cover it as the Manager (signed in as the Manager)
+move Manager desk2 >> the Manager sits behind Guichet 2
+wait 8
+say Watch: Counter staffing (Guichet 2 manned)
+pause
+
+say 08:47 Guichet 1 calls the next ticket with its call button. Karim goes to the counter
+clock 08:47
+callnext VIR >> press the call button of Guichet 1
+wait 1
+move Karim counter1 >> Karim walks to Guichet 1
+wait 6
+do As the Agent (Visitor queue, Guichet 1): Start service, then Complete
+leave Karim >> Karim leaves the branch
+
+say 08:48 Guichet 2 calls Salma from the app
+clock 08:48
+do As the Manager (Guichet 2): Call next, then Start service
+move Salma counter2 >> Salma walks to Guichet 2
+do As the Manager: Complete Salma's ticket
+leave Salma >> Salma leaves
+
+say 08:55 Both counters move on: Youssef to Guichet 1 (call button), Nadia to Guichet 2 (from the app)
+clock 08:55
+callnext VIR >> press the call button of Guichet 1
+wait 1
+move Youssef counter1 >> Youssef walks to Guichet 1
+do As the Manager (Guichet 2): Call next
+move Nadia counter2 >> Nadia walks to Guichet 2
+do Start and complete Youssef (Agent, Guichet 1) and Nadia (Manager, Guichet 2)
+leave Youssef >> Youssef and Nadia leave
+leave Nadia
+
+say 08:57 Three more visitors while the counters are busy
+clock 08:57
+add Amine visitor outside kiosk >> three more visitors come in and take Virement tickets
+wait 7
+kiosk Amine VIR >> press Virement on the kiosk (Amine)
+move Amine waiting
+add Sara visitor outside kiosk
+wait 7
+kiosk Sara VIR >> press Virement on the kiosk (Sara)
+move Sara waiting2
+add Rachid visitor outside kiosk
+wait 7
+kiosk Rachid VIR >> press Virement on the kiosk (Rachid)
+move Rachid waiting3
+
+say 09:09 Twelve minutes later. Watch: Visitor queue (the oldest ticket has waited more than 10 minutes)
+clock 09:09
+pause
+
+say 09:10 Clearing the queue: Leila, Mehdi, Amine, Sara, Rachid
+callnext VIR >> press the call button of Guichet 1
+wait 1
+move Leila counter1 >> Leila walks to Guichet 1
+do As the Manager (Guichet 2): Call next
+move Mehdi counter2 >> Mehdi walks to Guichet 2
+do Start and complete Leila and Mehdi
+leave Leila >> Leila and Mehdi leave
+leave Mehdi
+callnext VIR >> press the call button of Guichet 1
+wait 1
+move Amine counter1 >> Amine walks to Guichet 1
+do As the Manager (Guichet 2): Call next
+move Sara counter2 >> Sara walks to Guichet 2
+do Start and complete Amine and Sara
+leave Amine >> Amine and Sara leave
+leave Sara
+callnext VIR >> press the call button of Guichet 1
+wait 1
+move Rachid counter1 >> Rachid walks to Guichet 1
+do Start and complete Rachid. The Virement queue is empty
+leave Rachid >> Rachid leaves
+do As the Manager: stop covering Guichet 2
+move Manager bureau >> the Manager goes back to the office
+
+section Building alarms
+say 09:14 The temperature climbs. Watch: Climate, the bell, Alerts, a notification
+clock 09:14
+sensor temperature=31 humidity=52 now >> warm the temperature sensor (hand or hair dryer) to about 31 C
+wait 30
+sensor temperature=37 humidity=40 jump now >> keep heating it, above 35 C
+wait 10
+pause
+
+say 09:50 Cool it down, then heat it again quickly
+clock 09:50
+sensor temperature=23 humidity=45 jump now >> let the sensor cool down to room temperature
+wait 10
+sensor temperature=37 jump now >> heat it again, above 35 C
+wait 10
+do Acknowledge the temperature alert in the app
+sensor temperature=22 jump now >> let it cool down
+
+say 09:55 Gas leak (CO). Watch: the alert, the fan, the door unlocking
+clock 09:55
+sensor gas_co=13 jump now >> bring a CO test source near the MQ-7 sensor (no source: skip this step)
+wait 6
+sensor gas_co=30 jump now
+wait 10
+pause
+
+say 09:57 Back to normal. The alerts close themselves
+clock 09:57
+sensor temperature=22 humidity=45 gas_co=2 jump now >> take the CO source away and let the air clear
+wait 10
+pause
+
+section Security
+say 10:08 The Agent tries the technical room three times. Watch: refused access
+clock 10:08
+move Agent technique >> the Agent walks to the technical room door
+wait 10
+door Agent tech >> badge RFID-DEV-AGENT on the door reader, three times (refused each time)
+wait 2
+door Agent tech
+wait 2
+door Agent tech
+wait 2
+move Agent desk1 >> the Agent goes back to Guichet 1
+pause
+
+say 10:12 Driss, in the waiting area, draws a pistol. Watch: Alerts (weapon), Live map (red ring), a notification
+clock 10:12
+add Driss visitor outside waiting >> someone walks into the waiting area holding a toy pistol, in view of cam1 and cam2
+wait 8
+set Driss weapon=pistol
+wait 10
+pause
+
+say Driss runs out. The weapon alert stays open until someone resolves it
+leave Driss >> he runs out of the branch
+wait 8
+do Resolve the weapon alert in the app
+
+say 10:40 Wanted person at the kiosk
+do Watch list: add SUSPECT-001 (real cameras: with a photo of the person who will play him)
+clock 10:40
+add Bilal visitor outside kiosk wanted=SUSPECT-001 >> the "wanted" person walks up to the kiosk and faces the kiosk camera
+wait 7
+kiosk Bilal CRE >> press Credit on the kiosk
+wait 10
+say Watch: Alerts (watch list). Only the kiosk camera should match him
+pause
+
+say 10:53 Bilal leaves. The watch-list alert closes when no camera sees him
+clock 10:53
+leave Bilal >> he leaves the branch
+wait 8
+do Cancel his Credit ticket in the app
+
+section AI service down
+say 10:56 The AI service stops. Watch: Alerts (AI service down, after about 50 s)
+clock 10:56
+ai down >> stop the AI service (Ctrl+C in its window)
+wait 60
+pause
+
+say 11:00 The AI service is back. The alert closes
+clock 11:00
+ai up >> start the AI service again
+wait 20
+pause
+
+section Lunch
+say 12:30 Lunch: the Agent badges out at the gate and leaves
+clock 12:30
+move Agent entrance >> the Agent walks to the gate
+wait 10
+gate Agent >> badge RFID-DEV-AGENT on the gate reader (check-out)
+leave Agent >> the Agent leaves the branch
+wait 8
+say 12:37 Nobody at Guichet 1 for more than 5 minutes. Watch: Counter staffing (Guichet 1: nobody there)
+clock 12:37
+wait 10
+pause
+
+section Afternoon
+say 12:38 Karim comes back and takes a Virement ticket without giving his name. Watch: the returning-visitor card (his 08:30 visit)
+clock 12:38
+add Karim visitor outside kiosk >> the same person as Karim this morning walks to the kiosk and faces the kiosk camera
+wait 7
+kiosk - VIR >> press Virement on the kiosk
+move Karim waiting >> he sits in the waiting area
+wait 4
+pause
+
+say 12:45 Karim gives up and leaves; his ticket stays waiting
+clock 12:45
+leave Karim >> he leaves without being served
+wait 8
+
+section Closing
+say 16:35 After closing. Watch: Visitor queue (Karim's ticket became a no-show)
+clock 16:35
+gate Security >> Security and the Manager badge out at the gate
+gate Manager
+leave Security >> they leave
+leave Manager
+wait 10
+pause
+say End of the day

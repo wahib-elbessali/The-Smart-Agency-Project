@@ -7,7 +7,8 @@
 devices  Finds the branch, registers the four simulated devices (kiosk, gate
          reader, queue display, door/sensor board) or gives existing ones a new
          key, and writes tools/sim/sim_config.json (agency, device ids and
-         keys, URLs). world.py and w.py read that file.
+         keys, URLs). world.py and w.py read that file. A board marked real
+         ("w.py real kiosk on", before this step) is left alone.
 vision   Adds cameras cam1..cam4 if missing, calibrates cam1 and cam2 on the
          world's floor rectangle, aligns them, registers them for people
          tracking, draws the world zones (Gate, Kiosk zone, Waiting area,
@@ -117,7 +118,15 @@ def cmd_devices(args):
     cfg = load()
     known = {d["mqtt_client_id"]: d for d in api("GET", "/api/devices") if d["agency_id"] == a["id"]}
     devices = {}
+    real = cfg.get("real", {})
     for role, (client_id, name, dtype) in DEVICES.items():
+        if real.get(role):  # its key is flashed on the board: rotating it would take the board offline
+            if client_id not in known:
+                print(f"  {client_id}: REAL, not registered yet: add it on the Devices page and flash its key")
+            else:
+                print(f"  {client_id}: REAL, left as it is")
+            devices[role] = {"id": client_id, "device_uuid": (known.get(client_id) or {}).get("id")}
+            continue
         if client_id in known:
             reg = api("POST", f"/api/devices/{known[client_id]['id']}/rotate-key")
             print(f"  {client_id}: existing device, new key")

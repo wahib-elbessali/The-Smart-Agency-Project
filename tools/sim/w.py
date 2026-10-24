@@ -14,6 +14,9 @@ Devices
 Events
   fire PLACE [smoke]  |  fire clear
   ai down|up             the AI service stops / comes back
+Simulated or real (the world stops playing what is real)
+  real                   show what is simulated and what is real
+  real PART on|off       PART: cameras, kiosk, gate, display, door (several: real kiosk=on gate=on)
 Clock (backend started with run_fake_clock.py)
   clock                  show the backend's time
   clock HH:MM            move it to HH:MM today, in this computer's timezone
@@ -75,6 +78,26 @@ def clock(args):
     return call(BACKEND, "/_sim/clock", {"to": local.astimezone(timezone.utc).isoformat()})
 
 
+ROLES = ("cameras", "kiosk", "gate", "display", "door")
+
+
+def real(args):
+    """Show or change sim_config.json's "real" section (what the world must not play)."""
+    cfg = json.load(open(CFG_FILE, encoding="utf-8")) if os.path.exists(CFG_FILE) else {}
+    flags = cfg.setdefault("real", {})
+    pairs = dict(x.split("=", 1) for x in args if "=" in x)
+    if len(args) == 2 and "=" not in args[0]:
+        pairs = {args[0]: args[1]}
+    for role, v in pairs.items():
+        if role not in ROLES or v not in ("on", "off"):
+            sys.exit(f"real {role} {v}: PART is one of {', '.join(ROLES)}, then on or off")
+        flags[role] = v == "on"
+    if pairs:
+        json.dump(cfg, open(CFG_FILE, "w", encoding="utf-8"), indent=1)
+    for role in ROLES:
+        print(f"  {role:8} {'REAL' if flags.get(role) else 'simulated'}")
+
+
 def main(a):
     if not a:
         sys.exit(__doc__)
@@ -89,6 +112,8 @@ def main(a):
         return print(", ".join(call(WORLD, "/_sim/geometry")["places"]))
     if op == "clock":
         return print(json.dumps(clock(a[1:])))
+    if op == "real":
+        return real(a[1:])
 
     pos = [x for x in a[1:] if "=" not in x]
     extra = kv([x for x in a[1:] if "=" in x])
